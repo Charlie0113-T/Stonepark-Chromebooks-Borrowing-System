@@ -106,7 +106,7 @@ async function notifyBookingCreated(booking, resource) {
     booking.notes ? `Notes: ${booking.notes}` : '',
     ``,
     `Booking ID: ${booking.id}`,
-  ].filter((l) => l !== undefined).join('\n');
+  ].filter((l) => l !== '').join('\n');
 
   await Promise.all([
     sendEmail({ to: process.env.NOTIFY_TO || '', subject, text: body }),

@@ -6,9 +6,19 @@
  */
 
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const { v4: uuidv4 } = require('uuid');
 const { schoolsDB } = require('../db/database');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
+
+// 30 create-school requests per 15 minutes per IP
+const createSchoolLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many requests. Please try again later.' },
+});
 
 module.exports = function createSchoolsRouter() {
   const router = express.Router();
@@ -28,7 +38,7 @@ module.exports = function createSchoolsRouter() {
   });
 
   // POST /api/schools  – create a new school/campus
-  router.post('/', requireAuth, requireAdmin, (req, res) => {
+  router.post('/', createSchoolLimiter, requireAuth, requireAdmin, (req, res) => {
     const { name, campus } = req.body;
     if (!name) {
       return res.status(400).json({ success: false, message: 'name is required.' });

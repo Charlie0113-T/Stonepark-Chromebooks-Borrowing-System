@@ -10,12 +10,34 @@
  */
 
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const { v4: uuidv4 } = require('uuid');
 const { signToken, requireAuth, AUTH_BYPASS } = require('../middleware/auth');
 const { schoolsDB } = require('../db/database');
 
+// 20 login attempts per 15 minutes per IP
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many login attempts. Please try again later.' },
+});
+
+// 60 general auth requests per 15 minutes per IP
+const authApiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many requests. Please try again later.' },
+});
+
 module.exports = function createAuthRouter() {
   const router = express.Router();
+
+  // Apply general rate limit to all auth endpoints
+  router.use(authApiLimiter);
 
   // GET /api/auth/me
   router.get('/me', requireAuth, (req, res) => {
@@ -24,7 +46,7 @@ module.exports = function createAuthRouter() {
 
   // POST /api/auth/login  – dev/staff login with email (no password in dev mode)
   // In production, replace with proper credential validation or Google OAuth.
-  router.post('/login', (req, res) => {
+  router.post('/login', authLimiter, (req, res) => {
     const { email, name } = req.body;
     if (!email) {
       return res.status(400).json({ success: false, message: 'email is required.' });

@@ -27,6 +27,7 @@ export default function CalendarView() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [resources, setResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [view, setView] = useState<'month' | 'week' | 'day'>('week');
 
@@ -48,8 +49,8 @@ export default function CalendarView() {
         isOverdue: b.isOverdue || false,
       }));
       setEvents(calEvents);
-    } catch {
-      // Silently handle loading errors
+    } catch (err) {
+      setLoadError('Failed to load bookings. Please check the backend connection.');
     } finally {
       setLoading(false);
     }
@@ -78,6 +79,17 @@ export default function CalendarView() {
 
   if (loading) {
     return <div className="text-center py-20 text-gray-500">Loading calendar…</div>;
+  }
+
+  if (loadError) {
+    return (
+      <div
+        className="rounded px-4 py-3 text-sm font-medium"
+        style={{ backgroundColor: '#f8d7da', color: '#dc3545', border: '1px solid #dc3545' }}
+      >
+        ⚠️ {loadError}
+      </div>
+    );
   }
 
   return (

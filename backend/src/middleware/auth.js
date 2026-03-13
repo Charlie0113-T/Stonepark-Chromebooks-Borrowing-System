@@ -14,8 +14,14 @@
 
 const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-production';
 const AUTH_BYPASS = process.env.AUTH_BYPASS === 'true' || !process.env.JWT_SECRET;
+
+if (!process.env.JWT_SECRET && !AUTH_BYPASS) {
+  // Throw at startup so the misconfiguration is caught immediately.
+  throw new Error('JWT_SECRET environment variable is required when AUTH_BYPASS is not true. Set it in your .env file.');
+}
+
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-production';
 
 const DEFAULT_DEV_USER = {
   id: 'dev-user',

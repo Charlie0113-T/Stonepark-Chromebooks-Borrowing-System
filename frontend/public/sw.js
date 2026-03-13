@@ -5,7 +5,7 @@
  * This file is registered via src/serviceWorkerRegistration.ts.
  */
 
-const CACHE_NAME = 'stonepark-cb-v1';
+const CACHE_NAME = 'stonepark-cb-v1'; // Increment to v2, v3, etc. when cache-affecting changes are made
 const STATIC_ASSETS = [
   '/',
   '/index.html',
