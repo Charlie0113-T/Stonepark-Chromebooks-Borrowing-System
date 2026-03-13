@@ -34,7 +34,7 @@ export async function deleteResource(id: string): Promise<void> {
 
 // ── Bookings ──────────────────────────────────────────────────────────────────
 
-export async function fetchBookings(params?: { resourceId?: string; status?: string }): Promise<Booking[]> {
+export async function fetchBookings(params?: { resourceId?: string; status?: string; search?: string }): Promise<Booking[]> {
   const res = await api.get<{ success: boolean; data: Booking[] }>('/api/bookings', { params });
   return res.data.data;
 }
