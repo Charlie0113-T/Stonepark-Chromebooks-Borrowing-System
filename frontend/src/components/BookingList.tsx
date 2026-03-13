@@ -101,6 +101,14 @@ const BookingList: React.FC<BookingListProps> = ({ resource, onClose, onStatusCh
                 >
                   {b.status}
                 </span>
+                {b.isOverdue && (
+                  <span
+                    className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold"
+                    style={{ backgroundColor: '#f8d7da', color: '#dc3545' }}
+                  >
+                    ⏰ Overdue
+                  </span>
+                )}
               </div>
               <div className="mt-2 text-xs text-gray-600 grid grid-cols-2 gap-x-4 gap-y-0.5">
                 <span>📅 {fmtDt(b.startTime)}</span>

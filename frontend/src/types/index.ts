@@ -13,6 +13,7 @@ export interface Resource {
   currentBooked: number;
   availableNow: number;
   status: ResourceStatus;
+  overdueBookings: number;
 }
 
 export interface Booking {
@@ -26,6 +27,7 @@ export interface Booking {
   actualReturnTime: string | null;
   status: BookingStatus;
   notes: string;
+  isOverdue?: boolean;
 }
 
 export interface ResourceStat {
@@ -46,6 +48,8 @@ export interface Stats {
   returnedBookings: number;
   cancelledBookings: number;
   fullyBookedResources: number;
+  overdueBookings: number;
+  totalChromebooks: number;
   resourceStats: ResourceStat[];
 }
 
@@ -57,4 +61,12 @@ export interface CreateBookingPayload {
   startTime: string;
   endTime: string;
   notes?: string;
+}
+
+export interface CreateResourcePayload {
+  type: ResourceType;
+  name: string;
+  classRoom: string;
+  totalQuantity: number;
+  description?: string;
 }

@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import './App.css';
 import { fetchResources, fetchStats } from './api';
+import AddResourceForm from './components/AddResourceForm';
+import AllBookings from './components/AllBookings';
 import BookingForm from './components/BookingForm';
 import BookingList from './components/BookingList';
 import Modal from './components/Modal';
@@ -9,7 +11,7 @@ import StatsView from './components/StatsView';
 import { StatusDot } from './components/StatusBadge';
 import { Resource, Stats } from './types';
 
-type Tab = 'dashboard' | 'stats';
+type Tab = 'dashboard' | 'bookings' | 'stats';
 
 function App() {
   const [resources, setResources] = useState<Resource[]>([]);
@@ -22,10 +24,12 @@ function App() {
   const [bookingResource, setBookingResource] = useState<Resource | null>(null);
   const [historyResource, setHistoryResource] = useState<Resource | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [showAddResource, setShowAddResource] = useState(false);
 
   // Filter
   const [filter, setFilter] = useState<'all' | 'cabinet' | 'single'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'available' | 'partial' | 'full'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const loadData = useCallback(async () => {
     try {
@@ -53,9 +57,20 @@ function App() {
     await loadData();
   };
 
+  const handleAddResourceSuccess = async () => {
+    setShowAddResource(false);
+    setSuccessMsg('Resource added successfully!');
+    setTimeout(() => setSuccessMsg(null), 4000);
+    await loadData();
+  };
+
   const filteredResources = resources.filter((r) => {
     if (filter !== 'all' && r.type !== filter) return false;
     if (statusFilter !== 'all' && r.status !== statusFilter) return false;
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      if (!r.name.toLowerCase().includes(q) && !r.classRoom.toLowerCase().includes(q) && !r.description.toLowerCase().includes(q)) return false;
+    }
     return true;
   });
 
@@ -73,7 +88,9 @@ function App() {
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
           <div>
             <h1 className="text-xl font-bold tracking-tight">
-              🎓 Stonepark Chromebook Manager
+              🎓 Stonepark Intermediate School
+              <br />
+              <span className="text-base font-semibold">Chromebook Manager</span>
             </h1>
             <p className="text-xs text-gray-300 mt-0.5">Borrowing &amp; Reservation System</p>
           </div>
@@ -95,6 +112,12 @@ function App() {
                 <StatusDot status="full" />
                 <span className="text-gray-200">{stats.fullyBookedResources} Full</span>
               </div>
+              {stats.overdueBookings > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-full inline-block" style={{ backgroundColor: '#dc3545' }} aria-label="overdue" />
+                  <span className="text-gray-200">{stats.overdueBookings} Overdue</span>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -105,6 +128,9 @@ function App() {
         <div className="flex gap-1 mt-4" style={{ borderBottom: '1px solid #333333' }}>
           <button className={tabClass('dashboard')} onClick={() => setTab('dashboard')}>
             📋 Dashboard
+          </button>
+          <button className={tabClass('bookings')} onClick={() => setTab('bookings')}>
+            📖 Bookings
           </button>
           <button className={tabClass('stats')} onClick={() => setTab('stats')}>
             📊 Statistics
@@ -138,6 +164,18 @@ function App() {
           <div className="text-center py-20 text-gray-500">Loading resources…</div>
         ) : tab === 'dashboard' ? (
           <>
+            {/* Search */}
+            <div className="mb-4">
+              <input
+                type="text"
+                placeholder="🔍 Search resources by name, room, or description…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full rounded border px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+                style={{ borderColor: '#333333', backgroundColor: '#ffffff' }}
+              />
+            </div>
+
             {/* Filters */}
             <div className="flex flex-wrap items-center gap-3 mb-5">
               <div className="flex items-center gap-2">
@@ -180,6 +218,13 @@ function App() {
                   </button>
                 ))}
               </div>
+              <button
+                onClick={() => setShowAddResource(true)}
+                className="px-3 py-1 rounded border text-xs font-medium transition-colors"
+                style={{ borderColor: '#333333', backgroundColor: '#333333', color: '#ffffff' }}
+              >
+                + Add Resource
+              </button>
               <span className="ml-auto text-xs text-gray-500">
                 {filteredResources.length} resource{filteredResources.length !== 1 ? 's' : ''}
               </span>
@@ -215,6 +260,8 @@ function App() {
               ))}
             </div>
           </>
+        ) : tab === 'bookings' ? (
+          <AllBookings onStatusChange={loadData} />
         ) : (
           stats && <StatsView stats={stats} />
         )}
@@ -222,7 +269,7 @@ function App() {
 
       {/* Footer */}
       <footer className="text-center text-xs text-gray-400 py-6 mt-8">
-        Stonepark Secondary School — Chromebook Borrowing System
+        Stonepark Intermediate School — Chromebook Borrowing System
       </footer>
 
       {/* Booking Modal */}
@@ -243,6 +290,16 @@ function App() {
             resource={historyResource}
             onClose={() => setHistoryResource(null)}
             onStatusChange={loadData}
+          />
+        </Modal>
+      )}
+
+      {/* Add Resource Modal */}
+      {showAddResource && (
+        <Modal title="Add New Resource" onClose={() => setShowAddResource(false)}>
+          <AddResourceForm
+            onSuccess={handleAddResourceSuccess}
+            onCancel={() => setShowAddResource(false)}
           />
         </Modal>
       )}

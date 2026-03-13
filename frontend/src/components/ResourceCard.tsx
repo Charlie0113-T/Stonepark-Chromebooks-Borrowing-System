@@ -46,6 +46,13 @@ const ResourceCard: React.FC<ResourceCardProps> = ({ resource, onBook, onViewBoo
         )}
       </div>
 
+      {/* Overdue indicator */}
+      {resource.overdueBookings > 0 && (
+        <div className="text-xs font-medium px-2 py-0.5 rounded" style={{ backgroundColor: '#f8d7da', color: '#dc3545' }}>
+          ⏰ {resource.overdueBookings} overdue
+        </div>
+      )}
+
       {/* Utilisation bar */}
       {resource.type === 'cabinet' && (
         <div>

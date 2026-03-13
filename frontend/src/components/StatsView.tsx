@@ -43,10 +43,14 @@ const StatsView: React.FC<StatsViewProps> = ({ stats }) => {
   return (
     <div className="space-y-6">
       {/* Summary cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {[
           { label: 'Resources', value: stats.totalResources, color: '#333333' },
+          { label: 'Total Chromebooks', value: stats.totalChromebooks, color: '#333333' },
           { label: 'Active Bookings', value: stats.activeBookings, color: '#ffc107' },
+          ...(stats.overdueBookings > 0
+            ? [{ label: 'Overdue', value: stats.overdueBookings, color: '#dc3545' }]
+            : []),
           { label: 'Returned', value: stats.returnedBookings, color: '#28a745' },
           { label: 'Fully Booked Now', value: stats.fullyBookedResources, color: '#dc3545' },
         ].map((card) => (
