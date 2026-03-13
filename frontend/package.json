@@ -16,8 +16,11 @@
     "autoprefixer": "^10.4.27",
     "axios": "^1.13.6",
     "date-fns": "^4.1.0",
+    "moment": "^2.30.1",
     "postcss": "^8.5.8",
+    "qrcode.react": "^4.2.0",
     "react": "^19.2.4",
+    "react-big-calendar": "^1.19.4",
     "react-datepicker": "^9.1.0",
     "react-dom": "^19.2.4",
     "react-scripts": "5.0.1",
@@ -49,5 +52,9 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "devDependencies": {
+    "@types/moment": "^2.11.29",
+    "@types/react-big-calendar": "^1.16.3"
   }
 }

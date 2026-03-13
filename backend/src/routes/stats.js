@@ -1,21 +1,25 @@
 /**
  * Statistics / analytics route
- * GET /api/stats  - summary statistics
+ * GET /api/stats  - summary statistics (?schoolId=)
  */
 
 const express = require('express');
-const { resources, bookings, BOOKING_STATUS } = require('../data/store');
-const { getBookedQuantity, isBookingOverdue } = require('../models/booking');
+const { resourcesDB, bookingsDB } = require('../db/database');
+const { getBookedQuantityDB, isBookingOverdue } = require('../models/booking');
 
 module.exports = function createStatsRouter() {
   const router = express.Router();
 
   router.get('/', (req, res) => {
+    const { schoolId } = req.query;
     const now = new Date().toISOString();
+
+    const resources = resourcesDB.getAll(schoolId);
+    const bookings = bookingsDB.getAll({ schoolId });
 
     // Per-resource utilisation
     const resourceStats = resources.map((r) => {
-      const currentBooked = getBookedQuantity(bookings, r.id, now, now);
+      const currentBooked = getBookedQuantityDB(r.id, now, now);
       const utilisation = r.totalQuantity > 0 ? Math.round((currentBooked / r.totalQuantity) * 100) : 0;
       return {
         id: r.id,
@@ -32,14 +36,11 @@ module.exports = function createStatsRouter() {
     // Totals
     const totalResources = resources.length;
     const totalBookings = bookings.length;
-    const activeBookings = bookings.filter((b) => b.status === BOOKING_STATUS.ACTIVE).length;
-    const returnedBookings = bookings.filter((b) => b.status === BOOKING_STATUS.RETURNED).length;
-    const cancelledBookings = bookings.filter((b) => b.status === BOOKING_STATUS.CANCELLED).length;
+    const activeBookings = bookings.filter((b) => b.status === 'active').length;
+    const returnedBookings = bookings.filter((b) => b.status === 'returned').length;
+    const cancelledBookings = bookings.filter((b) => b.status === 'cancelled').length;
     const overdueBookings = bookings.filter((b) => isBookingOverdue(b)).length;
     const totalChromebooks = resources.reduce((sum, r) => sum + r.totalQuantity, 0);
-
-    // Conflict rate: bookings that were rejected are not stored, so we approximate
-    // by counting how many resources are currently at 100% utilisation
     const fullyBookedNow = resourceStats.filter((r) => r.currentBooked >= r.totalQuantity).length;
 
     res.json({

@@ -6,10 +6,21 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
+// Attach JWT token from localStorage if available
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('auth_token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
 // ── Resources ─────────────────────────────────────────────────────────────────
 
-export async function fetchResources(): Promise<Resource[]> {
-  const res = await api.get<{ success: boolean; data: Resource[] }>('/api/resources');
+export async function fetchResources(schoolId?: string): Promise<Resource[]> {
+  const res = await api.get<{ success: boolean; data: Resource[] }>('/api/resources', {
+    params: schoolId ? { schoolId } : undefined,
+  });
   return res.data.data;
 }
 
@@ -34,7 +45,7 @@ export async function deleteResource(id: string): Promise<void> {
 
 // ── Bookings ──────────────────────────────────────────────────────────────────
 
-export async function fetchBookings(params?: { resourceId?: string; status?: string; search?: string }): Promise<Booking[]> {
+export async function fetchBookings(params?: { resourceId?: string; status?: string; search?: string; schoolId?: string }): Promise<Booking[]> {
   const res = await api.get<{ success: boolean; data: Booking[] }>('/api/bookings', { params });
   return res.data.data;
 }
@@ -54,11 +65,62 @@ export async function cancelBooking(id: string): Promise<Booking> {
   return res.data.data;
 }
 
+/** Returns the URL for a booking's QR code image */
+export function getBookingQrUrl(id: string, format: 'png' | 'svg' = 'svg'): string {
+  const base = process.env.REACT_APP_API_URL || 'http://localhost:4000';
+  return `${base}/api/bookings/${id}/qr?format=${format}`;
+}
+
 // ── Stats ─────────────────────────────────────────────────────────────────────
 
-export async function fetchStats(): Promise<Stats> {
-  const res = await api.get<{ success: boolean; data: Stats }>('/api/stats');
+export async function fetchStats(schoolId?: string): Promise<Stats> {
+  const res = await api.get<{ success: boolean; data: Stats }>('/api/stats', {
+    params: schoolId ? { schoolId } : undefined,
+  });
   return res.data.data;
+}
+
+// ── Schools ───────────────────────────────────────────────────────────────────
+
+export interface School {
+  id: string;
+  name: string;
+  campus: string;
+}
+
+export async function fetchSchools(): Promise<School[]> {
+  const res = await api.get<{ success: boolean; data: School[] }>('/api/schools');
+  return res.data.data;
+}
+
+export async function createSchool(payload: { name: string; campus?: string }): Promise<School> {
+  const res = await api.post<{ success: boolean; data: School }>('/api/schools', payload);
+  return res.data.data;
+}
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  name: string;
+  role: 'admin' | 'staff';
+  schoolId: string;
+}
+
+export async function loginWithEmail(email: string, name?: string): Promise<{ user: AuthUser; token: string }> {
+  const res = await api.post<{ success: boolean; data: { user: AuthUser; token: string } }>('/api/auth/login', { email, name });
+  return res.data.data;
+}
+
+export async function fetchCurrentUser(): Promise<AuthUser> {
+  const res = await api.get<{ success: boolean; data: AuthUser }>('/api/auth/me');
+  return res.data.data;
+}
+
+export function getGoogleLoginUrl(): string {
+  const base = process.env.REACT_APP_API_URL || 'http://localhost:4000';
+  return `${base}/api/auth/google`;
 }
 
 export default api;
