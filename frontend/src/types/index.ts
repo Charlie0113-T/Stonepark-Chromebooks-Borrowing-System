@@ -4,6 +4,7 @@ export type BookingStatus = 'active' | 'returned' | 'cancelled';
 
 export interface Resource {
   id: string;
+  schoolId?: string;
   type: ResourceType;
   name: string;
   classRoom: string;
@@ -69,4 +70,5 @@ export interface CreateResourcePayload {
   classRoom: string;
   totalQuantity: number;
   description?: string;
+  schoolId?: string;
 }

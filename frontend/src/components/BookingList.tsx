@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { cancelBooking, fetchBookings, returnBooking } from '../api';
 import { Booking, Resource } from '../types';
 import { format } from 'date-fns';
+import Modal from './Modal';
+import QRCodeModal from './QRCodeModal';
 
 interface BookingListProps {
   resource: Resource;
@@ -13,6 +15,7 @@ const BookingList: React.FC<BookingListProps> = ({ resource, onClose, onStatusCh
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState<string | null>(null);
+  const [qrBooking, setQrBooking] = useState<Booking | null>(null);
 
   const load = async () => {
     try {
@@ -121,26 +124,36 @@ const BookingList: React.FC<BookingListProps> = ({ resource, onClose, onStatusCh
                 )}
                 {b.notes && <span className="col-span-2">📝 {b.notes}</span>}
               </div>
-              {b.status === 'active' && (
-                <div className="flex gap-2 mt-2">
-                  <button
-                    onClick={() => handleReturn(b.id)}
-                    disabled={actionId === b.id}
-                    className="px-3 py-1 rounded text-xs font-medium transition-colors disabled:opacity-50"
-                    style={{ backgroundColor: '#28a745', color: '#ffffff' }}
-                  >
-                    Return
-                  </button>
-                  <button
-                    onClick={() => handleCancel(b.id)}
-                    disabled={actionId === b.id}
-                    className="px-3 py-1 rounded text-xs font-medium transition-colors disabled:opacity-50"
-                    style={{ backgroundColor: '#dc3545', color: '#ffffff' }}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              )}
+              <div className="flex gap-2 mt-2">
+                {b.status === 'active' && (
+                  <>
+                    <button
+                      onClick={() => handleReturn(b.id)}
+                      disabled={actionId === b.id}
+                      className="px-3 py-1 rounded text-xs font-medium transition-colors disabled:opacity-50"
+                      style={{ backgroundColor: '#28a745', color: '#ffffff' }}
+                    >
+                      Return
+                    </button>
+                    <button
+                      onClick={() => handleCancel(b.id)}
+                      disabled={actionId === b.id}
+                      className="px-3 py-1 rounded text-xs font-medium transition-colors disabled:opacity-50"
+                      style={{ backgroundColor: '#dc3545', color: '#ffffff' }}
+                    >
+                      Cancel
+                    </button>
+                  </>
+                )}
+                <button
+                  onClick={() => setQrBooking(b)}
+                  className="px-3 py-1 rounded text-xs font-medium"
+                  style={{ backgroundColor: 'transparent', border: '1px solid #333', color: '#333' }}
+                  title="Show QR code"
+                >
+                  📲 QR
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -152,6 +165,16 @@ const BookingList: React.FC<BookingListProps> = ({ resource, onClose, onStatusCh
       >
         Close
       </button>
+
+      {qrBooking && (
+        <Modal title="QR Check-in / Check-out" onClose={() => setQrBooking(null)}>
+          <QRCodeModal
+            booking={qrBooking}
+            resourceName={resource.name}
+            onClose={() => setQrBooking(null)}
+          />
+        </Modal>
+      )}
     </div>
   );
 };

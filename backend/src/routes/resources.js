@@ -1,37 +1,41 @@
 /**
  * Resources REST routes
- * GET  /api/resources        - list all resources with current status
- * GET  /api/resources/:id    - get single resource
- * POST /api/resources        - create a new resource
+ * GET    /api/resources        - list all resources with current status (?schoolId=)
+ * GET    /api/resources/:id    - get single resource
+ * POST   /api/resources        - create a new resource
+ * PUT    /api/resources/:id    - update a resource
+ * DELETE /api/resources/:id    - delete a resource (blocked if active bookings)
  */
 
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
-const { resources, RESOURCE_TYPE, bookings: storeBookings, BOOKING_STATUS } = require('../data/store');
-const { enrichResource, getBookedQuantity } = require('../models/booking');
+const { resourcesDB, bookingsDB } = require('../db/database');
+const { enrichResourceDB, getBookedQuantityDB } = require('../models/booking');
 
-// bookings array is passed in so routes always use the shared mutable reference
-module.exports = function createResourcesRouter(bookings) {
+const RESOURCE_TYPE = { CABINET: 'cabinet', SINGLE: 'single' };
+
+module.exports = function createResourcesRouter() {
   const router = express.Router();
 
   // GET /api/resources
   router.get('/', (req, res) => {
-    const enriched = resources.map((r) => enrichResource(r, bookings));
+    const resources = resourcesDB.getAll(req.query.schoolId);
+    const enriched = resources.map((r) => enrichResourceDB(r));
     res.json({ success: true, data: enriched });
   });
 
   // GET /api/resources/:id
   router.get('/:id', (req, res) => {
-    const resource = resources.find((r) => r.id === req.params.id);
+    const resource = resourcesDB.getById(req.params.id);
     if (!resource) {
       return res.status(404).json({ success: false, message: 'Resource not found.' });
     }
-    res.json({ success: true, data: enrichResource(resource, bookings) });
+    res.json({ success: true, data: enrichResourceDB(resource) });
   });
 
   // POST /api/resources
   router.post('/', (req, res) => {
-    const { type, name, classRoom, totalQuantity, description } = req.body;
+    const { type, name, classRoom, totalQuantity, description, schoolId } = req.body;
 
     if (!type || !name || !classRoom || totalQuantity == null) {
       return res.status(400).json({ success: false, message: 'type, name, classRoom and totalQuantity are required.' });
@@ -47,30 +51,30 @@ module.exports = function createResourcesRouter(bookings) {
       return res.status(400).json({ success: false, message: 'Single-device resources must have totalQuantity of 1.' });
     }
 
-    const resource = {
+    const resource = resourcesDB.create({
       id: uuidv4(),
       type,
       name,
       classRoom,
       totalQuantity: qty,
       description: description || '',
-    };
-    resources.push(resource);
-    res.status(201).json({ success: true, data: enrichResource(resource, bookings) });
+      schoolId: schoolId || 'school-default',
+    });
+    res.status(201).json({ success: true, data: enrichResourceDB(resource) });
   });
 
   // PUT /api/resources/:id
   router.put('/:id', (req, res) => {
-    const idx = resources.findIndex((r) => r.id === req.params.id);
-    if (idx === -1) {
+    const resource = resourcesDB.getById(req.params.id);
+    if (!resource) {
       return res.status(404).json({ success: false, message: 'Resource not found.' });
     }
-    const resource = resources[idx];
     const { name, classRoom, description, totalQuantity } = req.body;
+    const updates = {};
 
-    if (name != null) resource.name = name;
-    if (classRoom != null) resource.classRoom = classRoom;
-    if (description != null) resource.description = description;
+    if (name != null) updates.name = name;
+    if (classRoom != null) updates.classRoom = classRoom;
+    if (description != null) updates.description = description;
     if (totalQuantity != null) {
       const qty = parseInt(totalQuantity, 10);
       if (isNaN(qty) || qty < 1) {
@@ -80,34 +84,30 @@ module.exports = function createResourcesRouter(bookings) {
         return res.status(400).json({ success: false, message: 'Single-device resources must have totalQuantity of 1.' });
       }
       const now = new Date().toISOString();
-      const currentBooked = getBookedQuantity(bookings, resource.id, now, now);
+      const currentBooked = getBookedQuantityDB(resource.id, now, now);
       if (qty < currentBooked) {
         return res.status(409).json({
           success: false,
           message: `Cannot reduce totalQuantity to ${qty}; ${currentBooked} units are currently booked.`,
         });
       }
-      resource.totalQuantity = qty;
+      updates.totalQuantity = qty;
     }
 
-    res.json({ success: true, data: enrichResource(resource, bookings) });
+    const updated = resourcesDB.update(req.params.id, updates);
+    res.json({ success: true, data: enrichResourceDB(updated) });
   });
 
   // DELETE /api/resources/:id
   router.delete('/:id', (req, res) => {
-    const idx = resources.findIndex((r) => r.id === req.params.id);
-    if (idx === -1) {
+    const resource = resourcesDB.getById(req.params.id);
+    if (!resource) {
       return res.status(404).json({ success: false, message: 'Resource not found.' });
     }
-
-    const hasActive = storeBookings.some(
-      (b) => b.resourceId === req.params.id && b.status === BOOKING_STATUS.ACTIVE
-    );
-    if (hasActive) {
+    if (resourcesDB.hasActiveBookings(req.params.id)) {
       return res.status(409).json({ success: false, message: 'Cannot delete resource with active bookings.' });
     }
-
-    resources.splice(idx, 1);
+    resourcesDB.delete(req.params.id);
     res.json({ success: true, message: 'Resource deleted.' });
   });
 

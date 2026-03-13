@@ -1,7 +1,8 @@
 /**
  * Bookings REST routes
- * GET    /api/bookings              - list all bookings (optional ?resourceId=, ?status=)
+ * GET    /api/bookings              - list all bookings (optional ?resourceId=, ?status=, ?search=, ?schoolId=)
  * GET    /api/bookings/:id          - get single booking
+ * GET    /api/bookings/:id/qr       - get QR code PNG for check-in/check-out
  * POST   /api/bookings              - create booking (with conflict detection)
  * PATCH  /api/bookings/:id/return   - mark a booking as returned
  * PATCH  /api/bookings/:id/cancel   - cancel a booking
@@ -9,29 +10,18 @@
 
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
-const { resources, bookings, BOOKING_STATUS } = require('../data/store');
-const { checkConflict, isBookingOverdue } = require('../models/booking');
+const QRCode = require('qrcode');
+const { resourcesDB, bookingsDB } = require('../db/database');
+const { checkConflictDB, isBookingOverdue } = require('../models/booking');
+const { notifyBookingCreated, notifyBookingReturned } = require('../services/notifications');
 
 module.exports = function createBookingsRouter() {
   const router = express.Router();
 
   // GET /api/bookings
   router.get('/', (req, res) => {
-    let result = [...bookings];
-    if (req.query.resourceId) {
-      result = result.filter((b) => b.resourceId === req.query.resourceId);
-    }
-    if (req.query.status) {
-      result = result.filter((b) => b.status === req.query.status);
-    }
-    if (req.query.search) {
-      const term = req.query.search.toLowerCase();
-      result = result.filter(
-        (b) =>
-          b.borrower?.toLowerCase().includes(term) ||
-          b.borrowerClass?.toLowerCase().includes(term)
-      );
-    }
+    const { resourceId, status, search, schoolId } = req.query;
+    let result = bookingsDB.getAll({ resourceId, status, search, schoolId });
 
     // Sort: overdue active first, then active, then returned, then cancelled
     const statusOrder = { active: 0, returned: 1, cancelled: 2 };
@@ -51,15 +41,43 @@ module.exports = function createBookingsRouter() {
 
   // GET /api/bookings/:id
   router.get('/:id', (req, res) => {
-    const booking = bookings.find((b) => b.id === req.params.id);
+    const booking = bookingsDB.getById(req.params.id);
     if (!booking) {
       return res.status(404).json({ success: false, message: 'Booking not found.' });
     }
     res.json({ success: true, data: { ...booking, isOverdue: isBookingOverdue(booking) } });
   });
 
+  // GET /api/bookings/:id/qr  – returns a PNG QR code for the booking
+  router.get('/:id/qr', async (req, res) => {
+    const booking = bookingsDB.getById(req.params.id);
+    if (!booking) {
+      return res.status(404).json({ success: false, message: 'Booking not found.' });
+    }
+    try {
+      const qrData = JSON.stringify({
+        bookingId: booking.id,
+        resourceId: booking.resourceId,
+        borrower: booking.borrower,
+        status: booking.status,
+      });
+      const format = req.query.format === 'svg' ? 'svg' : 'png';
+      if (format === 'svg') {
+        const svg = await QRCode.toString(qrData, { type: 'svg' });
+        res.setHeader('Content-Type', 'image/svg+xml');
+        return res.send(svg);
+      }
+      const buffer = await QRCode.toBuffer(qrData, { type: 'png', width: 300 });
+      res.setHeader('Content-Type', 'image/png');
+      res.send(buffer);
+    } catch (err) {
+      console.error('[QR] Generation failed:', err);
+      res.status(500).json({ success: false, message: 'QR code generation failed.' });
+    }
+  });
+
   // POST /api/bookings - create new booking
-  router.post('/', (req, res) => {
+  router.post('/', async (req, res) => {
     const { resourceId, borrower, borrowerClass, quantity, startTime, endTime, notes } = req.body;
 
     // Validate required fields
@@ -70,7 +88,7 @@ module.exports = function createBookingsRouter() {
       });
     }
 
-    const resource = resources.find((r) => r.id === resourceId);
+    const resource = resourcesDB.getById(resourceId);
     if (!resource) {
       return res.status(404).json({ success: false, message: 'Resource not found.' });
     }
@@ -87,12 +105,12 @@ module.exports = function createBookingsRouter() {
     }
 
     // Conflict detection
-    const conflict = checkConflict(resource, bookings, startTime, endTime, requestedQty);
+    const conflict = checkConflictDB(resource, startTime, endTime, requestedQty);
     if (!conflict.ok) {
       return res.status(409).json({ success: false, message: conflict.reason });
     }
 
-    const booking = {
+    const booking = bookingsDB.create({
       id: uuidv4(),
       resourceId,
       borrower,
@@ -101,38 +119,48 @@ module.exports = function createBookingsRouter() {
       startTime: new Date(startTime).toISOString(),
       endTime: new Date(endTime).toISOString(),
       actualReturnTime: null,
-      status: BOOKING_STATUS.ACTIVE,
+      status: 'active',
       notes: notes || '',
-    };
-    bookings.push(booking);
+    });
+
+    // Fire-and-forget notification
+    notifyBookingCreated(booking, resource).catch(() => {});
+
     res.status(201).json({ success: true, data: booking });
   });
 
   // PATCH /api/bookings/:id/return
-  router.patch('/:id/return', (req, res) => {
-    const booking = bookings.find((b) => b.id === req.params.id);
+  router.patch('/:id/return', async (req, res) => {
+    const booking = bookingsDB.getById(req.params.id);
     if (!booking) {
       return res.status(404).json({ success: false, message: 'Booking not found.' });
     }
-    if (booking.status !== BOOKING_STATUS.ACTIVE) {
+    if (booking.status !== 'active') {
       return res.status(400).json({ success: false, message: `Booking is already ${booking.status}.` });
     }
-    booking.status = BOOKING_STATUS.RETURNED;
-    booking.actualReturnTime = new Date().toISOString();
-    res.json({ success: true, data: booking });
+    const updated = bookingsDB.update(req.params.id, {
+      status: 'returned',
+      actualReturnTime: new Date().toISOString(),
+    });
+
+    // Fire-and-forget notification
+    const resource = resourcesDB.getById(booking.resourceId);
+    if (resource) notifyBookingReturned(updated, resource).catch(() => {});
+
+    res.json({ success: true, data: updated });
   });
 
   // PATCH /api/bookings/:id/cancel
   router.patch('/:id/cancel', (req, res) => {
-    const booking = bookings.find((b) => b.id === req.params.id);
+    const booking = bookingsDB.getById(req.params.id);
     if (!booking) {
       return res.status(404).json({ success: false, message: 'Booking not found.' });
     }
-    if (booking.status !== BOOKING_STATUS.ACTIVE) {
+    if (booking.status !== 'active') {
       return res.status(400).json({ success: false, message: `Booking is already ${booking.status}.` });
     }
-    booking.status = BOOKING_STATUS.CANCELLED;
-    res.json({ success: true, data: booking });
+    const updated = bookingsDB.update(req.params.id, { status: 'cancelled' });
+    res.json({ success: true, data: updated });
   });
 
   return router;

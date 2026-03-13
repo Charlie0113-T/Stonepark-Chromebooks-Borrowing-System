@@ -1,10 +1,14 @@
 const express = require('express');
 const cors = require('cors');
 
-const { bookings } = require('./src/data/store');
+// Database initialised on require (runs migrations + seed)
+require('./src/db/database');
+
 const createResourcesRouter = require('./src/routes/resources');
 const createBookingsRouter = require('./src/routes/bookings');
 const createStatsRouter = require('./src/routes/stats');
+const createAuthRouter = require('./src/routes/auth');
+const createSchoolsRouter = require('./src/routes/schools');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -14,7 +18,9 @@ app.use(cors());
 app.use(express.json());
 
 // ── Routes ────────────────────────────────────────────────────────────────────
-app.use('/api/resources', createResourcesRouter(bookings));
+app.use('/api/auth', createAuthRouter());
+app.use('/api/schools', createSchoolsRouter());
+app.use('/api/resources', createResourcesRouter());
 app.use('/api/bookings', createBookingsRouter());
 app.use('/api/stats', createStatsRouter());
 

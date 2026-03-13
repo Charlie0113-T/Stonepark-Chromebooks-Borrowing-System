@@ -1,24 +1,40 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import './App.css';
-import { fetchResources, fetchStats } from './api';
+import { fetchResources, fetchSchools, fetchStats, School } from './api';
 import AddResourceForm from './components/AddResourceForm';
 import AllBookings from './components/AllBookings';
 import BookingForm from './components/BookingForm';
 import BookingList from './components/BookingList';
+import CalendarView from './components/CalendarView';
+import LoginForm from './components/LoginForm';
 import Modal from './components/Modal';
 import ResourceCard from './components/ResourceCard';
 import StatsView from './components/StatsView';
 import { StatusDot } from './components/StatusBadge';
 import { Resource, Stats } from './types';
 
-type Tab = 'dashboard' | 'bookings' | 'stats';
+type Tab = 'dashboard' | 'bookings' | 'calendar' | 'stats';
 
 function App() {
   const [resources, setResources] = useState<Resource[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
+  const [schools, setSchools] = useState<School[]>([]);
+  const [selectedSchool, setSelectedSchool] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('dashboard');
+
+  // Auth state
+  const [authUser, setAuthUser] = useState<string | null>(() => {
+    try {
+      const u = localStorage.getItem('auth_user');
+      return u ? JSON.parse(u).name : null;
+    } catch {
+      return null;
+    }
+  });
+  const [showLogin, setShowLogin] = useState(false);
+  const bypassAuth = !process.env.REACT_APP_REQUIRE_AUTH;
 
   // Modal states
   const [bookingResource, setBookingResource] = useState<Resource | null>(null);
@@ -34,7 +50,10 @@ function App() {
   const loadData = useCallback(async () => {
     try {
       setError(null);
-      const [res, st] = await Promise.all([fetchResources(), fetchStats()]);
+      const [res, st] = await Promise.all([
+        fetchResources(selectedSchool || undefined),
+        fetchStats(selectedSchool || undefined),
+      ]);
       setResources(res);
       setStats(st);
     } catch {
@@ -42,13 +61,28 @@ function App() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [selectedSchool]);
 
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 30000); // auto-refresh every 30s
+    const interval = setInterval(loadData, 30000);
     return () => clearInterval(interval);
   }, [loadData]);
+
+  // Load schools for multi-school selector
+  useEffect(() => {
+    fetchSchools().then(setSchools).catch(() => {});
+  }, []);
+
+  // Handle OAuth token in URL (after Google OAuth callback)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+    if (token) {
+      localStorage.setItem('auth_token', token);
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
 
   const handleBookSuccess = async () => {
     setBookingResource(null);
@@ -62,6 +96,17 @@ function App() {
     setSuccessMsg('Resource added successfully!');
     setTimeout(() => setSuccessMsg(null), 4000);
     await loadData();
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('auth_user');
+    setAuthUser(null);
+  };
+
+  const handleLogin = (_token: string, name: string) => {
+    setAuthUser(name);
+    setShowLogin(false);
   };
 
   const filteredResources = resources.filter((r) => {
@@ -84,6 +129,11 @@ function App() {
         : 'border-transparent text-gray-500 hover:text-gray-700 bg-transparent'
     }`;
 
+  // Show login gate only when REACT_APP_REQUIRE_AUTH=true and user isn't logged in
+  if (!bypassAuth && !authUser && showLogin) {
+    return <LoginForm onLogin={handleLogin} />;
+  }
+
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#f8f9fa', fontFamily: 'Inter, system-ui, sans-serif' }}>
       {/* Header */}
@@ -97,34 +147,76 @@ function App() {
             </h1>
             <p className="text-xs text-gray-300 mt-0.5">Borrowing &amp; Reservation System</p>
           </div>
-          {stats && (
-            <div className="hidden sm:flex items-center gap-4 text-sm">
-              <div className="flex items-center gap-1.5">
-                <StatusDot status="available" />
-                <span className="text-gray-200">
-                  {stats.resourceStats.filter((r) => r.utilisationPct === 0).length} Free
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <StatusDot status="partial" />
-                <span className="text-gray-200">
-                  {stats.resourceStats.filter((r) => r.utilisationPct > 0 && r.utilisationPct < 100).length} Partial
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <StatusDot status="full" />
-                <span className="text-gray-200">{stats.fullyBookedResources} Full</span>
-              </div>
-              {stats.overdueBookings > 0 && (
+          <div className="flex items-center gap-3">
+            {stats && (
+              <div className="hidden sm:flex items-center gap-4 text-sm">
                 <div className="flex items-center gap-1.5">
-                  <span className="w-3 h-3 rounded-full inline-block" style={{ backgroundColor: '#dc3545' }} aria-label="overdue" />
-                  <span className="text-gray-200">{stats.overdueBookings} Overdue</span>
+                  <StatusDot status="available" />
+                  <span className="text-gray-200">
+                    {stats.resourceStats.filter((r) => r.utilisationPct === 0).length} Free
+                  </span>
                 </div>
-              )}
-            </div>
-          )}
+                <div className="flex items-center gap-1.5">
+                  <StatusDot status="partial" />
+                  <span className="text-gray-200">
+                    {stats.resourceStats.filter((r) => r.utilisationPct > 0 && r.utilisationPct < 100).length} Partial
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <StatusDot status="full" />
+                  <span className="text-gray-200">{stats.fullyBookedResources} Full</span>
+                </div>
+                {stats.overdueBookings > 0 && (
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-3 h-3 rounded-full inline-block" style={{ backgroundColor: '#dc3545' }} aria-label="overdue" />
+                    <span className="text-gray-200">{stats.overdueBookings} Overdue</span>
+                  </div>
+                )}
+              </div>
+            )}
+            {/* Auth */}
+            {authUser ? (
+              <div className="flex items-center gap-2 text-xs text-gray-300">
+                <span>👤 {authUser}</span>
+                <button
+                  onClick={handleLogout}
+                  className="px-2 py-1 rounded border border-gray-400 text-gray-300 hover:bg-gray-600 text-xs"
+                >
+                  Sign out
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowLogin(true)}
+                className="px-3 py-1.5 rounded border border-gray-400 text-gray-200 hover:bg-gray-600 text-xs font-medium"
+              >
+                Sign in
+              </button>
+            )}
+          </div>
         </div>
       </header>
+
+      {/* School / Campus Selector */}
+      {schools.length > 1 && (
+        <div style={{ backgroundColor: '#444', color: '#eee' }} className="border-b border-gray-600">
+          <div className="max-w-6xl mx-auto px-4 py-2 flex items-center gap-3">
+            <label className="text-xs font-medium text-gray-300">🏫 Campus:</label>
+            <select
+              value={selectedSchool}
+              onChange={(e) => setSelectedSchool(e.target.value)}
+              className="rounded border text-xs px-2 py-1 bg-gray-700 text-gray-100 border-gray-500 focus:outline-none"
+            >
+              <option value="">All Campuses</option>
+              {schools.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name} — {s.campus}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="max-w-6xl mx-auto px-4">
@@ -134,6 +226,9 @@ function App() {
           </button>
           <button className={tabClass('bookings')} onClick={() => setTab('bookings')}>
             📖 Bookings
+          </button>
+          <button className={tabClass('calendar')} onClick={() => setTab('calendar')}>
+            📅 Calendar
           </button>
           <button className={tabClass('stats')} onClick={() => setTab('stats')}>
             📊 Statistics
@@ -265,6 +360,8 @@ function App() {
           </>
         ) : tab === 'bookings' ? (
           <AllBookings onStatusChange={loadData} />
+        ) : tab === 'calendar' ? (
+          <CalendarView />
         ) : (
           stats && <StatsView stats={stats} />
         )}
@@ -274,6 +371,13 @@ function App() {
       <footer className="text-center text-xs text-gray-400 py-6 mt-8">
         Stonepark Intermediate School — Chromebook Borrowing System
       </footer>
+
+      {/* Login Modal */}
+      {showLogin && (
+        <Modal title="Sign In" onClose={() => setShowLogin(false)}>
+          <LoginForm onLogin={handleLogin} />
+        </Modal>
+      )}
 
       {/* Booking Modal */}
       {bookingResource && (
@@ -309,5 +413,6 @@ function App() {
     </div>
   );
 }
+
 
 export default App;

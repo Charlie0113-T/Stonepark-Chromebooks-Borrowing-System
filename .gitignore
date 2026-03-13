@@ -8,11 +8,18 @@ frontend/build/
 frontend/dist/
 
 # Environment files
+.env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
 frontend/.env.local
+backend/.env
+
+# SQLite database files (runtime data, not committed)
+backend/data/*.db
+backend/data/*.db-shm
+backend/data/*.db-wal
 
 # Logs
 npm-debug.log*

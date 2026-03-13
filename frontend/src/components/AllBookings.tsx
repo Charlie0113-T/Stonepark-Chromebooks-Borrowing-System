@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { cancelBooking, fetchBookings, fetchResources, returnBooking } from '../api';
 import { Booking, BookingStatus, Resource } from '../types';
 import { format } from 'date-fns';
+import Modal from './Modal';
+import QRCodeModal from './QRCodeModal';
 
 interface AllBookingsProps {
   onStatusChange: () => void;
@@ -14,6 +16,7 @@ const AllBookings: React.FC<AllBookingsProps> = ({ onStatusChange }) => {
   const [actionId, setActionId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | BookingStatus>('all');
+  const [qrBooking, setQrBooking] = useState<Booking | null>(null);
 
   const resourceMap = React.useMemo(() => {
     const map: Record<string, Resource> = {};
@@ -172,30 +175,50 @@ const AllBookings: React.FC<AllBookingsProps> = ({ onStatusChange }) => {
                   )}
                   {b.notes && <span className="col-span-2">📝 {b.notes}</span>}
                 </div>
-                {b.status === 'active' && (
-                  <div className="flex gap-2 mt-2">
-                    <button
-                      onClick={() => handleReturn(b.id)}
-                      disabled={actionId === b.id}
-                      className="px-3 py-1 rounded text-xs font-medium transition-colors disabled:opacity-50"
-                      style={{ backgroundColor: '#28a745', color: '#ffffff' }}
-                    >
-                      Return
-                    </button>
-                    <button
-                      onClick={() => handleCancel(b.id)}
-                      disabled={actionId === b.id}
-                      className="px-3 py-1 rounded text-xs font-medium transition-colors disabled:opacity-50"
-                      style={{ backgroundColor: '#dc3545', color: '#ffffff' }}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                )}
+                <div className="flex gap-2 mt-2">
+                  {b.status === 'active' && (
+                    <>
+                      <button
+                        onClick={() => handleReturn(b.id)}
+                        disabled={actionId === b.id}
+                        className="px-3 py-1 rounded text-xs font-medium transition-colors disabled:opacity-50"
+                        style={{ backgroundColor: '#28a745', color: '#ffffff' }}
+                      >
+                        Return
+                      </button>
+                      <button
+                        onClick={() => handleCancel(b.id)}
+                        disabled={actionId === b.id}
+                        className="px-3 py-1 rounded text-xs font-medium transition-colors disabled:opacity-50"
+                        style={{ backgroundColor: '#dc3545', color: '#ffffff' }}
+                      >
+                        Cancel
+                      </button>
+                    </>
+                  )}
+                  <button
+                    onClick={() => setQrBooking(b)}
+                    className="px-3 py-1 rounded text-xs font-medium transition-colors"
+                    style={{ backgroundColor: 'transparent', border: '1px solid #333', color: '#333' }}
+                    title="Show QR code"
+                  >
+                    📲 QR
+                  </button>
+                </div>
               </div>
             );
           })}
         </div>
+      )}
+
+      {qrBooking && (
+        <Modal title="QR Check-in / Check-out" onClose={() => setQrBooking(null)}>
+          <QRCodeModal
+            booking={qrBooking}
+            resourceName={resourceMap[qrBooking.resourceId]?.name || qrBooking.resourceId}
+            onClose={() => setQrBooking(null)}
+          />
+        </Modal>
       )}
     </div>
   );
