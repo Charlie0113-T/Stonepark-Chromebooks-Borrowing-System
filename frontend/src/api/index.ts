@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Booking, CreateBookingPayload, Resource, Stats } from '../types';
+import { Booking, CreateBookingPayload, CreateResourcePayload, Resource, Stats } from '../types';
 
 const api = axios.create({
   baseURL: process.env.REACT_APP_API_URL || 'http://localhost:4000',
@@ -18,9 +18,23 @@ export async function fetchResource(id: string): Promise<Resource> {
   return res.data.data;
 }
 
+export async function createResource(payload: CreateResourcePayload): Promise<Resource> {
+  const res = await api.post<{ success: boolean; data: Resource }>('/api/resources', payload);
+  return res.data.data;
+}
+
+export async function updateResource(id: string, payload: Partial<CreateResourcePayload>): Promise<Resource> {
+  const res = await api.put<{ success: boolean; data: Resource }>(`/api/resources/${id}`, payload);
+  return res.data.data;
+}
+
+export async function deleteResource(id: string): Promise<void> {
+  await api.delete(`/api/resources/${id}`);
+}
+
 // ── Bookings ──────────────────────────────────────────────────────────────────
 
-export async function fetchBookings(params?: { resourceId?: string; status?: string }): Promise<Booking[]> {
+export async function fetchBookings(params?: { resourceId?: string; status?: string; search?: string }): Promise<Booking[]> {
   const res = await api.get<{ success: boolean; data: Booking[] }>('/api/bookings', { params });
   return res.data.data;
 }

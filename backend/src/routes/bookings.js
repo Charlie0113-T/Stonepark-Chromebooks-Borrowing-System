@@ -10,7 +10,7 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { resources, bookings, BOOKING_STATUS } = require('../data/store');
-const { checkConflict } = require('../models/booking');
+const { checkConflict, isBookingOverdue } = require('../models/booking');
 
 module.exports = function createBookingsRouter() {
   const router = express.Router();
@@ -24,9 +24,29 @@ module.exports = function createBookingsRouter() {
     if (req.query.status) {
       result = result.filter((b) => b.status === req.query.status);
     }
-    // Sort newest first
-    result.sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
-    res.json({ success: true, data: result });
+    if (req.query.search) {
+      const term = req.query.search.toLowerCase();
+      result = result.filter(
+        (b) =>
+          b.borrower?.toLowerCase().includes(term) ||
+          b.borrowerClass?.toLowerCase().includes(term)
+      );
+    }
+
+    // Sort: overdue active first, then active, then returned, then cancelled
+    const statusOrder = { active: 0, returned: 1, cancelled: 2 };
+    result.sort((a, b) => {
+      const aOverdue = isBookingOverdue(a) ? 0 : 1;
+      const bOverdue = isBookingOverdue(b) ? 0 : 1;
+      if (aOverdue !== bOverdue) return aOverdue - bOverdue;
+      const aStatus = statusOrder[a.status] ?? 3;
+      const bStatus = statusOrder[b.status] ?? 3;
+      if (aStatus !== bStatus) return aStatus - bStatus;
+      return new Date(b.startTime) - new Date(a.startTime);
+    });
+
+    const data = result.map((b) => ({ ...b, isOverdue: isBookingOverdue(b) }));
+    res.json({ success: true, data });
   });
 
   // GET /api/bookings/:id
@@ -35,7 +55,7 @@ module.exports = function createBookingsRouter() {
     if (!booking) {
       return res.status(404).json({ success: false, message: 'Booking not found.' });
     }
-    res.json({ success: true, data: booking });
+    res.json({ success: true, data: { ...booking, isOverdue: isBookingOverdue(booking) } });
   });
 
   // POST /api/bookings - create new booking
