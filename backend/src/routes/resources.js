@@ -8,7 +8,7 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { resources, RESOURCE_TYPE, bookings: storeBookings, BOOKING_STATUS } = require('../data/store');
-const { enrichResource } = require('../models/booking');
+const { enrichResource, getBookedQuantity } = require('../models/booking');
 
 // bookings array is passed in so routes always use the shared mutable reference
 module.exports = function createResourcesRouter(bookings) {
@@ -80,7 +80,6 @@ module.exports = function createResourcesRouter(bookings) {
         return res.status(400).json({ success: false, message: 'Single-device resources must have totalQuantity of 1.' });
       }
       const now = new Date().toISOString();
-      const { getBookedQuantity } = require('../models/booking');
       const currentBooked = getBookedQuantity(bookings, resource.id, now, now);
       if (qty < currentBooked) {
         return res.status(409).json({

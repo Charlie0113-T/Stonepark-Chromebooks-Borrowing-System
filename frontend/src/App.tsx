@@ -69,7 +69,10 @@ function App() {
     if (statusFilter !== 'all' && r.status !== statusFilter) return false;
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      if (!r.name.toLowerCase().includes(q) && !r.classRoom.toLowerCase().includes(q) && !r.description.toLowerCase().includes(q)) return false;
+      const matchesName = r.name.toLowerCase().includes(q);
+      const matchesRoom = r.classRoom.toLowerCase().includes(q);
+      const matchesDesc = r.description.toLowerCase().includes(q);
+      if (!matchesName && !matchesRoom && !matchesDesc) return false;
     }
     return true;
   });

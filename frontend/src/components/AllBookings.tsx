@@ -70,18 +70,6 @@ const AllBookings: React.FC<AllBookingsProps> = ({ onStatusChange }) => {
     }
   };
 
-  const filtered = bookings.filter((b) => {
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      if (
-        !b.borrower.toLowerCase().includes(q) &&
-        !b.borrowerClass.toLowerCase().includes(q)
-      )
-        return false;
-    }
-    return true;
-  });
-
   return (
     <div className="space-y-4">
       {/* Search */}
@@ -114,18 +102,18 @@ const AllBookings: React.FC<AllBookingsProps> = ({ onStatusChange }) => {
           </button>
         ))}
         <span className="ml-auto text-xs text-gray-500">
-          {filtered.length} booking{filtered.length !== 1 ? 's' : ''}
+          {bookings.length} booking{bookings.length !== 1 ? 's' : ''}
         </span>
       </div>
 
       {/* Bookings list */}
       {loading ? (
         <p className="text-sm text-gray-500 text-center py-10">Loading bookings…</p>
-      ) : filtered.length === 0 ? (
+      ) : bookings.length === 0 ? (
         <p className="text-sm text-gray-500 text-center py-10">No bookings found.</p>
       ) : (
         <div className="space-y-2">
-          {filtered.map((b) => {
+          {bookings.map((b) => {
             const res = resourceMap[b.resourceId];
             return (
               <div
