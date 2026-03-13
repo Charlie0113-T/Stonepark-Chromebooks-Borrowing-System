@@ -72,17 +72,29 @@ function getResourceStatus(resource, bookings) {
 }
 
 /**
- * Enrich a resource object with derived fields: status, currentBooked, availableNow.
+ * Check whether a booking is overdue (active but past its end time).
+ */
+function isBookingOverdue(booking) {
+  if (booking.status !== BOOKING_STATUS.ACTIVE) return false;
+  return new Date(booking.endTime) < new Date();
+}
+
+/**
+ * Enrich a resource object with derived fields: status, currentBooked, availableNow, overdueBookings.
  */
 function enrichResource(resource, bookings) {
   const now = new Date().toISOString();
   const currentBooked = getBookedQuantity(bookings, resource.id, now, now);
   const status = getResourceStatus(resource, bookings);
+  const overdueBookings = bookings.filter(
+    (b) => b.resourceId === resource.id && isBookingOverdue(b)
+  ).length;
   return {
     ...resource,
     currentBooked,
     availableNow: resource.totalQuantity - currentBooked,
     status,
+    overdueBookings,
   };
 }
 
@@ -92,4 +104,5 @@ module.exports = {
   checkConflict,
   getResourceStatus,
   enrichResource,
+  isBookingOverdue,
 };

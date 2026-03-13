@@ -32,7 +32,7 @@ app.use((err, _req, res, _next) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Stonepark Chromebook API running on http://localhost:${PORT}`);
+  console.log(`Stonepark Intermediate School Chromebook API running on http://localhost:${PORT}`);
 });
 
 module.exports = app;

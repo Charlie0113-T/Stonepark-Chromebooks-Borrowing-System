@@ -7,7 +7,7 @@
 
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
-const { resources, RESOURCE_TYPE } = require('../data/store');
+const { resources, RESOURCE_TYPE, bookings: storeBookings, BOOKING_STATUS } = require('../data/store');
 const { enrichResource } = require('../models/booking');
 
 // bookings array is passed in so routes always use the shared mutable reference
@@ -57,6 +57,50 @@ module.exports = function createResourcesRouter(bookings) {
     };
     resources.push(resource);
     res.status(201).json({ success: true, data: enrichResource(resource, bookings) });
+  });
+
+  // PUT /api/resources/:id
+  router.put('/:id', (req, res) => {
+    const idx = resources.findIndex((r) => r.id === req.params.id);
+    if (idx === -1) {
+      return res.status(404).json({ success: false, message: 'Resource not found.' });
+    }
+    const resource = resources[idx];
+    const { name, classRoom, description, totalQuantity } = req.body;
+
+    if (name != null) resource.name = name;
+    if (classRoom != null) resource.classRoom = classRoom;
+    if (description != null) resource.description = description;
+    if (totalQuantity != null) {
+      const qty = parseInt(totalQuantity, 10);
+      if (isNaN(qty) || qty < 1) {
+        return res.status(400).json({ success: false, message: 'totalQuantity must be a positive integer.' });
+      }
+      if (resource.type === RESOURCE_TYPE.SINGLE && qty !== 1) {
+        return res.status(400).json({ success: false, message: 'Single-device resources must have totalQuantity of 1.' });
+      }
+      resource.totalQuantity = qty;
+    }
+
+    res.json({ success: true, data: enrichResource(resource, bookings) });
+  });
+
+  // DELETE /api/resources/:id
+  router.delete('/:id', (req, res) => {
+    const idx = resources.findIndex((r) => r.id === req.params.id);
+    if (idx === -1) {
+      return res.status(404).json({ success: false, message: 'Resource not found.' });
+    }
+
+    const hasActive = storeBookings.some(
+      (b) => b.resourceId === req.params.id && b.status === BOOKING_STATUS.ACTIVE
+    );
+    if (hasActive) {
+      return res.status(409).json({ success: false, message: 'Cannot delete resource with active bookings.' });
+    }
+
+    resources.splice(idx, 1);
+    res.json({ success: true, message: 'Resource deleted.' });
   });
 
   return router;

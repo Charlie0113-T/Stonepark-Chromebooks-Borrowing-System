@@ -5,7 +5,7 @@
 
 const express = require('express');
 const { resources, bookings, BOOKING_STATUS } = require('../data/store');
-const { getBookedQuantity } = require('../models/booking');
+const { getBookedQuantity, isBookingOverdue } = require('../models/booking');
 
 module.exports = function createStatsRouter() {
   const router = express.Router();
@@ -35,6 +35,8 @@ module.exports = function createStatsRouter() {
     const activeBookings = bookings.filter((b) => b.status === BOOKING_STATUS.ACTIVE).length;
     const returnedBookings = bookings.filter((b) => b.status === BOOKING_STATUS.RETURNED).length;
     const cancelledBookings = bookings.filter((b) => b.status === BOOKING_STATUS.CANCELLED).length;
+    const overdueBookings = bookings.filter((b) => isBookingOverdue(b)).length;
+    const totalChromebooks = resources.reduce((sum, r) => sum + r.totalQuantity, 0);
 
     // Conflict rate: bookings that were rejected are not stored, so we approximate
     // by counting how many resources are currently at 100% utilisation
@@ -48,6 +50,8 @@ module.exports = function createStatsRouter() {
         activeBookings,
         returnedBookings,
         cancelledBookings,
+        overdueBookings,
+        totalChromebooks,
         fullyBookedResources: fullyBookedNow,
         resourceStats,
       },
