@@ -1,6 +1,6 @@
 # 🎓 Stonepark Chromebook Borrowing System
 
-A full-stack web application for Stonepark Secondary School to manage the borrowing and reservation of Chromebooks, including charging cabinets and individual devices.
+A full-stack web application for Stonepark Intermediate School to manage the borrowing and reservation of Chromebooks, including charging cabinets and individual devices.
 
 ---
 
@@ -11,9 +11,14 @@ A full-stack web application for Stonepark Secondary School to manage the borrow
 | 📋 **Resource Dashboard** | Grid view of all Chromebook resources with live status |
 | 🟢🟡🔴 **Status Colours** | Green = Available, Yellow = Partial, Red = Full |
 | 📅 **Bookings** | Time-slot reservations with borrower/class record |
+| 📑 **All Bookings Tab** | Third tab showing all bookings across all resources |
 | 🚫 **Conflict Detection** | Automatic time-overlap checks; prevents double-booking |
+| ⏰ **Overdue Detection** | Automatic detection of overdue bookings |
+| 🔍 **Search** | Search resources by name/room/description; search bookings by borrower name or class |
 | 🔍 **Filters** | Filter by resource type or status |
-| 📊 **Statistics** | Utilisation charts, pie chart, and per-resource table |
+| ➕ **Add Resource** | Add new resources directly from the dashboard UI |
+| 🗂 **Resource Management** | Update and delete resources via API (delete blocked if active bookings) |
+| 📊 **Statistics** | Utilisation charts, pie chart, per-resource table, total Chromebooks count, overdue bookings count |
 | ↩️ **Return / Cancel** | Mark active bookings as returned or cancelled |
 | 🔄 **Auto-refresh** | Dashboard refreshes every 30 seconds |
 | 📱 **Responsive** | Works on Chromebook, tablet, and desktop |
@@ -38,11 +43,11 @@ EXPLORE/
 │   ├── index.js              # Express server entry point
 │   └── src/
 │       ├── data/
-│       │   └── store.js      # In-memory data store + seed data
+│       │   └── store.js      # In-memory data store + seed data (9 resources, 8 bookings)
 │       ├── models/
-│       │   └── booking.js    # Conflict detection & resource enrichment
+│       │   └── booking.js    # Conflict detection, overdue detection & resource enrichment
 │       └── routes/
-│           ├── resources.js  # GET/POST /api/resources
+│           ├── resources.js  # GET/POST/PUT/DELETE /api/resources
 │           ├── bookings.js   # GET/POST/PATCH /api/bookings
 │           └── stats.js      # GET /api/stats
 └── frontend/
@@ -53,6 +58,8 @@ EXPLORE/
         │   ├── ResourceCard.tsx  # Resource status card
         │   ├── BookingForm.tsx   # New booking form
         │   ├── BookingList.tsx   # Booking history per resource
+        │   ├── AllBookings.tsx   # All bookings across all resources
+        │   ├── AddResourceForm.tsx # Add new resource form
         │   ├── StatsView.tsx     # Charts & statistics
         │   ├── StatusBadge.tsx   # Status colour badge
         │   └── Modal.tsx         # Accessible modal dialog
@@ -101,6 +108,8 @@ npm run build      # production build in /build
 | `GET` | `/api/resources` | List all resources with live status |
 | `GET` | `/api/resources/:id` | Get single resource |
 | `POST` | `/api/resources` | Create a new resource |
+| `PUT` | `/api/resources/:id` | Update a resource |
+| `DELETE` | `/api/resources/:id` | Delete a resource (blocked if active bookings) |
 
 **POST /api/resources body:**
 ```json
@@ -117,7 +126,7 @@ npm run build      # production build in /build
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/api/bookings` | List all bookings (supports `?resourceId=` & `?status=`) |
+| `GET` | `/api/bookings` | List all bookings (supports `?resourceId=`, `?status=` & `?search=`) |
 | `GET` | `/api/bookings/:id` | Get single booking |
 | `POST` | `/api/bookings` | Create booking (with conflict detection) |
 | `PATCH` | `/api/bookings/:id/return` | Mark booking as returned |
@@ -160,6 +169,7 @@ npm run build      # production build in /build
   currentBooked: number;
   availableNow: number;
   status: "available" | "partial" | "full";
+  overdueBookings: number;
 }
 ```
 
@@ -177,6 +187,26 @@ npm run build      # production build in /build
   actualReturnTime: string | null;
   status: "active" | "returned" | "cancelled";
   notes: string;
+  isOverdue: boolean;
+}
+```
+
+### Stats
+
+```typescript
+{
+  totalResources: number;
+  totalChromebooks: number;
+  activeBookings: number;
+  overdueBookings: number;
+  resourceUtilisation: Array<{
+    resourceId: string;
+    name: string;
+    type: string;
+    totalQuantity: number;
+    currentBooked: number;
+    utilisation: number;
+  }>;
 }
 ```
 
@@ -205,10 +235,9 @@ npm run build      # production build in /build
 - [ ] Multi-school / multi-campus support
 - [ ] Calendar view for bookings
 - [ ] QR code check-in/check-out
-- [ ] Admin panel for resource management
 
 ---
 
 ## 📝 License
 
-MIT — Stonepark Secondary School
+MIT — Stonepark Intermediate School
