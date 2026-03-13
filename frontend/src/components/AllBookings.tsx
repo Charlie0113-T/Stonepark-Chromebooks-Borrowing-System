@@ -27,9 +27,9 @@ const AllBookings: React.FC<AllBookingsProps> = ({ onStatusChange }) => {
       const params: Record<string, string> = {};
       if (statusFilter !== 'all') params.status = statusFilter;
       if (search.trim()) params.search = search.trim();
-      const [bk, res] = await Promise.all([fetchBookings(params), fetchResources()]);
-      setBookings(bk);
-      setResources(res);
+      const [fetchedBookings, fetchedResources] = await Promise.all([fetchBookings(params), fetchResources()]);
+      setBookings(fetchedBookings);
+      setResources(fetchedResources);
     } finally {
       setLoading(false);
     }
