@@ -1,0 +1,4 @@
+/* App-specific global overrides */
+.react-datepicker-wrapper {
+  width: 100%;
+}
