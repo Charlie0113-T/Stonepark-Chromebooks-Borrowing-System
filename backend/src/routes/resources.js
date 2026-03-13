@@ -79,6 +79,15 @@ module.exports = function createResourcesRouter(bookings) {
       if (resource.type === RESOURCE_TYPE.SINGLE && qty !== 1) {
         return res.status(400).json({ success: false, message: 'Single-device resources must have totalQuantity of 1.' });
       }
+      const now = new Date().toISOString();
+      const { getBookedQuantity } = require('../models/booking');
+      const currentBooked = getBookedQuantity(bookings, resource.id, now, now);
+      if (qty < currentBooked) {
+        return res.status(409).json({
+          success: false,
+          message: `Cannot reduce totalQuantity to ${qty}; ${currentBooked} units are currently booked.`,
+        });
+      }
       resource.totalQuantity = qty;
     }
 

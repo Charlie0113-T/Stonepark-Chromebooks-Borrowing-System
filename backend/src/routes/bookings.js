@@ -28,8 +28,8 @@ module.exports = function createBookingsRouter() {
       const term = req.query.search.toLowerCase();
       result = result.filter(
         (b) =>
-          (b.borrower && b.borrower.toLowerCase().includes(term)) ||
-          (b.borrowerClass && b.borrowerClass.toLowerCase().includes(term))
+          b.borrower?.toLowerCase().includes(term) ||
+          b.borrowerClass?.toLowerCase().includes(term)
       );
     }
 
