@@ -1,8 +1,17 @@
 import axios from 'axios';
 import { Booking, CreateBookingPayload, CreateResourcePayload, Resource, Stats } from '../types';
 
+function resolveApiBaseUrl() {
+  if (process.env.REACT_APP_API_URL) return process.env.REACT_APP_API_URL;
+  // For split deployment (Vercel frontend + external API), this must be set in production.
+  if (process.env.NODE_ENV === 'production') return 'http://localhost:4000';
+  return 'http://localhost:4000';
+}
+
+export const API_BASE_URL = resolveApiBaseUrl();
+
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:4000',
+  baseURL: API_BASE_URL,
   headers: { 'Content-Type': 'application/json' },
 });
 
@@ -67,8 +76,7 @@ export async function cancelBooking(id: string): Promise<Booking> {
 
 /** Returns the URL for a booking's QR code image */
 export function getBookingQrUrl(id: string, format: 'png' | 'svg' = 'svg'): string {
-  const base = process.env.REACT_APP_API_URL || 'http://localhost:4000';
-  return `${base}/api/bookings/${id}/qr?format=${format}`;
+  return `${API_BASE_URL}/api/bookings/${id}/qr?format=${format}`;
 }
 
 // ── Stats ─────────────────────────────────────────────────────────────────────
@@ -119,8 +127,7 @@ export async function fetchCurrentUser(): Promise<AuthUser> {
 }
 
 export function getGoogleLoginUrl(): string {
-  const base = process.env.REACT_APP_API_URL || 'http://localhost:4000';
-  return `${base}/api/auth/google`;
+  return `${API_BASE_URL}/api/auth/google`;
 }
 
 export default api;

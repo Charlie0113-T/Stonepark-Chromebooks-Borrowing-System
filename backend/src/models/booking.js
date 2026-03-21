@@ -35,8 +35,8 @@ function getBookedQuantity(bookings, resourceId, startTime, endTime, excludeId =
 /**
  * DB-backed version: get booked quantity from SQLite.
  */
-function getBookedQuantityDB(resourceId, startTime, endTime, excludeId = null) {
-  const overlapping = bookingsDB.getOverlapping(resourceId, startTime, endTime, excludeId);
+async function getBookedQuantityDB(resourceId, startTime, endTime, excludeId = null) {
+  const overlapping = await bookingsDB.getOverlapping(resourceId, startTime, endTime, excludeId);
   return overlapping.reduce((sum, b) => sum + (b.quantity || 0), 0);
 }
 
@@ -71,12 +71,12 @@ function checkConflict(resource, bookings, startTime, endTime, requestedQuantity
 /**
  * DB-backed conflict check.
  */
-function checkConflictDB(resource, startTime, endTime, requestedQuantity, excludeId = null) {
+async function checkConflictDB(resource, startTime, endTime, requestedQuantity, excludeId = null) {
   if (new Date(startTime) >= new Date(endTime)) {
     return { ok: false, reason: 'Start time must be before end time.' };
   }
 
-  const bookedQty = getBookedQuantityDB(resource.id, startTime, endTime, excludeId);
+  const bookedQty = await getBookedQuantityDB(resource.id, startTime, endTime, excludeId);
   const available = resource.totalQuantity - bookedQty;
 
   if (resource.type === 'single') {
@@ -110,9 +110,9 @@ function getResourceStatus(resource, bookings) {
 /**
  * DB-backed resource status.
  */
-function getResourceStatusDB(resource) {
+async function getResourceStatusDB(resource) {
   const now = new Date().toISOString();
-  const booked = getBookedQuantityDB(resource.id, now, now);
+  const booked = await getBookedQuantityDB(resource.id, now, now);
 
   if (booked === 0) return RESOURCE_STATUS.AVAILABLE;
   if (booked >= resource.totalQuantity) return RESOURCE_STATUS.FULL;
@@ -150,11 +150,11 @@ function enrichResource(resource, bookings) {
 /**
  * DB-backed enrichResource: reads live data from SQLite.
  */
-function enrichResourceDB(resource) {
+async function enrichResourceDB(resource) {
   const now = new Date().toISOString();
-  const currentBooked = getBookedQuantityDB(resource.id, now, now);
-  const status = getResourceStatusDB(resource);
-  const overdueBookings = bookingsDB.getAll({ resourceId: resource.id, status: 'active' })
+  const currentBooked = await getBookedQuantityDB(resource.id, now, now);
+  const status = await getResourceStatusDB(resource);
+  const overdueBookings = (await bookingsDB.getAll({ resourceId: resource.id, status: 'active' }))
     .filter((b) => isBookingOverdue(b)).length;
   return {
     ...resource,

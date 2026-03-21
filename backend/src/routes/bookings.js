@@ -9,7 +9,7 @@
  */
 
 const express = require('express');
-const { v4: uuidv4 } = require('uuid');
+const { randomUUID } = require('node:crypto');
 const QRCode = require('qrcode');
 const { resourcesDB, bookingsDB } = require('../db/database');
 const { checkConflictDB, isBookingOverdue } = require('../models/booking');
@@ -19,9 +19,9 @@ module.exports = function createBookingsRouter() {
   const router = express.Router();
 
   // GET /api/bookings
-  router.get('/', (req, res) => {
+  router.get('/', async (req, res) => {
     const { resourceId, status, search, schoolId } = req.query;
-    let result = bookingsDB.getAll({ resourceId, status, search, schoolId });
+    let result = await bookingsDB.getAll({ resourceId, status, search, schoolId });
 
     // Sort: overdue active first, then active, then returned, then cancelled
     const statusOrder = { active: 0, returned: 1, cancelled: 2 };
@@ -40,8 +40,8 @@ module.exports = function createBookingsRouter() {
   });
 
   // GET /api/bookings/:id
-  router.get('/:id', (req, res) => {
-    const booking = bookingsDB.getById(req.params.id);
+  router.get('/:id', async (req, res) => {
+    const booking = await bookingsDB.getById(req.params.id);
     if (!booking) {
       return res.status(404).json({ success: false, message: 'Booking not found.' });
     }
@@ -50,7 +50,7 @@ module.exports = function createBookingsRouter() {
 
   // GET /api/bookings/:id/qr  – returns a PNG QR code for the booking
   router.get('/:id/qr', async (req, res) => {
-    const booking = bookingsDB.getById(req.params.id);
+    const booking = await bookingsDB.getById(req.params.id);
     if (!booking) {
       return res.status(404).json({ success: false, message: 'Booking not found.' });
     }
@@ -88,7 +88,7 @@ module.exports = function createBookingsRouter() {
       });
     }
 
-    const resource = resourcesDB.getById(resourceId);
+    const resource = await resourcesDB.getById(resourceId);
     if (!resource) {
       return res.status(404).json({ success: false, message: 'Resource not found.' });
     }
@@ -105,13 +105,13 @@ module.exports = function createBookingsRouter() {
     }
 
     // Conflict detection
-    const conflict = checkConflictDB(resource, startTime, endTime, requestedQty);
+    const conflict = await checkConflictDB(resource, startTime, endTime, requestedQty);
     if (!conflict.ok) {
       return res.status(409).json({ success: false, message: conflict.reason });
     }
 
-    const booking = bookingsDB.create({
-      id: uuidv4(),
+    const booking = await bookingsDB.create({
+      id: randomUUID(),
       resourceId,
       borrower,
       borrowerClass,
@@ -131,35 +131,35 @@ module.exports = function createBookingsRouter() {
 
   // PATCH /api/bookings/:id/return
   router.patch('/:id/return', async (req, res) => {
-    const booking = bookingsDB.getById(req.params.id);
+    const booking = await bookingsDB.getById(req.params.id);
     if (!booking) {
       return res.status(404).json({ success: false, message: 'Booking not found.' });
     }
     if (booking.status !== 'active') {
       return res.status(400).json({ success: false, message: `Booking is already ${booking.status}.` });
     }
-    const updated = bookingsDB.update(req.params.id, {
+    const updated = await bookingsDB.update(req.params.id, {
       status: 'returned',
       actualReturnTime: new Date().toISOString(),
     });
 
     // Fire-and-forget notification
-    const resource = resourcesDB.getById(booking.resourceId);
+    const resource = await resourcesDB.getById(booking.resourceId);
     if (resource) notifyBookingReturned(updated, resource).catch(() => {});
 
     res.json({ success: true, data: updated });
   });
 
   // PATCH /api/bookings/:id/cancel
-  router.patch('/:id/cancel', (req, res) => {
-    const booking = bookingsDB.getById(req.params.id);
+  router.patch('/:id/cancel', async (req, res) => {
+    const booking = await bookingsDB.getById(req.params.id);
     if (!booking) {
       return res.status(404).json({ success: false, message: 'Booking not found.' });
     }
     if (booking.status !== 'active') {
       return res.status(400).json({ success: false, message: `Booking is already ${booking.status}.` });
     }
-    const updated = bookingsDB.update(req.params.id, { status: 'cancelled' });
+    const updated = await bookingsDB.update(req.params.id, { status: 'cancelled' });
     res.json({ success: true, data: updated });
   });
 

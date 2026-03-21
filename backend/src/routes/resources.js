@@ -8,7 +8,7 @@
  */
 
 const express = require('express');
-const { v4: uuidv4 } = require('uuid');
+const { randomUUID } = require('node:crypto');
 const { resourcesDB, bookingsDB } = require('../db/database');
 const { enrichResourceDB, getBookedQuantityDB } = require('../models/booking');
 
@@ -18,23 +18,23 @@ module.exports = function createResourcesRouter() {
   const router = express.Router();
 
   // GET /api/resources
-  router.get('/', (req, res) => {
-    const resources = resourcesDB.getAll(req.query.schoolId);
-    const enriched = resources.map((r) => enrichResourceDB(r));
+  router.get('/', async (req, res) => {
+    const resources = await resourcesDB.getAll(req.query.schoolId);
+    const enriched = await Promise.all(resources.map((r) => enrichResourceDB(r)));
     res.json({ success: true, data: enriched });
   });
 
   // GET /api/resources/:id
-  router.get('/:id', (req, res) => {
-    const resource = resourcesDB.getById(req.params.id);
+  router.get('/:id', async (req, res) => {
+    const resource = await resourcesDB.getById(req.params.id);
     if (!resource) {
       return res.status(404).json({ success: false, message: 'Resource not found.' });
     }
-    res.json({ success: true, data: enrichResourceDB(resource) });
+    res.json({ success: true, data: await enrichResourceDB(resource) });
   });
 
   // POST /api/resources
-  router.post('/', (req, res) => {
+  router.post('/', async (req, res) => {
     const { type, name, classRoom, totalQuantity, description, schoolId } = req.body;
 
     if (!type || !name || !classRoom || totalQuantity == null) {
@@ -51,8 +51,8 @@ module.exports = function createResourcesRouter() {
       return res.status(400).json({ success: false, message: 'Single-device resources must have totalQuantity of 1.' });
     }
 
-    const resource = resourcesDB.create({
-      id: uuidv4(),
+    const resource = await resourcesDB.create({
+      id: randomUUID(),
       type,
       name,
       classRoom,
@@ -60,12 +60,12 @@ module.exports = function createResourcesRouter() {
       description: description || '',
       schoolId: schoolId || 'school-default',
     });
-    res.status(201).json({ success: true, data: enrichResourceDB(resource) });
+    res.status(201).json({ success: true, data: await enrichResourceDB(resource) });
   });
 
   // PUT /api/resources/:id
-  router.put('/:id', (req, res) => {
-    const resource = resourcesDB.getById(req.params.id);
+  router.put('/:id', async (req, res) => {
+    const resource = await resourcesDB.getById(req.params.id);
     if (!resource) {
       return res.status(404).json({ success: false, message: 'Resource not found.' });
     }
@@ -84,7 +84,7 @@ module.exports = function createResourcesRouter() {
         return res.status(400).json({ success: false, message: 'Single-device resources must have totalQuantity of 1.' });
       }
       const now = new Date().toISOString();
-      const currentBooked = getBookedQuantityDB(resource.id, now, now);
+      const currentBooked = await getBookedQuantityDB(resource.id, now, now);
       if (qty < currentBooked) {
         return res.status(409).json({
           success: false,
@@ -94,20 +94,20 @@ module.exports = function createResourcesRouter() {
       updates.totalQuantity = qty;
     }
 
-    const updated = resourcesDB.update(req.params.id, updates);
-    res.json({ success: true, data: enrichResourceDB(updated) });
+    const updated = await resourcesDB.update(req.params.id, updates);
+    res.json({ success: true, data: await enrichResourceDB(updated) });
   });
 
   // DELETE /api/resources/:id
-  router.delete('/:id', (req, res) => {
-    const resource = resourcesDB.getById(req.params.id);
+  router.delete('/:id', async (req, res) => {
+    const resource = await resourcesDB.getById(req.params.id);
     if (!resource) {
       return res.status(404).json({ success: false, message: 'Resource not found.' });
     }
-    if (resourcesDB.hasActiveBookings(req.params.id)) {
+    if (await resourcesDB.hasActiveBookings(req.params.id)) {
       return res.status(409).json({ success: false, message: 'Cannot delete resource with active bookings.' });
     }
-    resourcesDB.delete(req.params.id);
+    await resourcesDB.delete(req.params.id);
     res.json({ success: true, message: 'Resource deleted.' });
   });
 

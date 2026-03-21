@@ -11,9 +11,15 @@
 
 const express = require('express');
 const rateLimit = require('express-rate-limit');
-const { v4: uuidv4 } = require('uuid');
+const { randomUUID } = require('node:crypto');
 const { signToken, requireAuth, AUTH_BYPASS } = require('../middleware/auth');
 const { schoolsDB } = require('../db/database');
+
+const ALLOWED_EMAIL_DOMAIN = (process.env.ALLOWED_EMAIL_DOMAIN || '@cloud.edu.pe.ca').trim().toLowerCase();
+
+function isAllowedEmail(email) {
+  return typeof email === 'string' && email.toLowerCase().endsWith(ALLOWED_EMAIL_DOMAIN);
+}
 
 // 20 login attempts per 15 minutes per IP
 const authLimiter = rateLimit({
@@ -51,9 +57,12 @@ module.exports = function createAuthRouter() {
     if (!email) {
       return res.status(400).json({ success: false, message: 'email is required.' });
     }
+    if (!isAllowedEmail(email)) {
+      return res.status(403).json({ success: false, message: `Only ${ALLOWED_EMAIL_DOMAIN} accounts are allowed.` });
+    }
 
     const user = {
-      id: uuidv4(),
+      id: randomUUID(),
       email,
       name: name || email.split('@')[0],
       role: 'staff',
@@ -128,6 +137,9 @@ module.exports = function createAuthRouter() {
       // Decode id_token (JWT) – we trust Google's signature here (simplified)
       const idToken = tokenData.id_token;
       const payload = JSON.parse(Buffer.from(idToken.split('.')[1], 'base64url').toString());
+      if (!isAllowedEmail(payload.email)) {
+        return res.status(403).json({ success: false, message: `Only ${ALLOWED_EMAIL_DOMAIN} accounts are allowed.` });
+      }
 
       const user = {
         id: `google-${payload.sub}`,

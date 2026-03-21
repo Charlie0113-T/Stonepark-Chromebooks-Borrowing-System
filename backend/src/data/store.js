@@ -3,7 +3,7 @@
  * In production this can be replaced by a database adapter.
  */
 
-const { v4: uuidv4 } = require('uuid');
+const { randomUUID } = require('node:crypto');
 
 // Resource types
 const RESOURCE_TYPE = {
@@ -105,7 +105,7 @@ const resources = [
 const now = new Date();
 const bookings = [
   {
-    id: uuidv4(),
+    id: randomUUID(),
     resourceId: 'res-001',
     borrower: 'Ms. Johnson',
     borrowerClass: 'Year 7',
@@ -117,7 +117,7 @@ const bookings = [
     notes: 'Year 7 Science project',
   },
   {
-    id: uuidv4(),
+    id: randomUUID(),
     resourceId: 'res-002',
     borrower: 'Mr. Smith',
     borrowerClass: 'Year 8',
@@ -129,7 +129,7 @@ const bookings = [
     notes: 'Year 8 Digital Literacy exam',
   },
   {
-    id: uuidv4(),
+    id: randomUUID(),
     resourceId: 'res-005',
     borrower: 'Alice Chen',
     borrowerClass: 'Year 9',
@@ -141,7 +141,7 @@ const bookings = [
     notes: 'Independent research',
   },
   {
-    id: uuidv4(),
+    id: randomUUID(),
     resourceId: 'res-003',
     borrower: 'Mrs. Williams',
     borrowerClass: 'Year 9',
@@ -153,7 +153,7 @@ const bookings = [
     notes: 'Year 9 Geography mapping exercise',
   },
   {
-    id: uuidv4(),
+    id: randomUUID(),
     resourceId: 'res-004',
     borrower: 'Mr. Patel',
     borrowerClass: 'Year 10',
@@ -165,7 +165,7 @@ const bookings = [
     notes: 'Digital Arts portfolio work',
   },
   {
-    id: uuidv4(),
+    id: randomUUID(),
     resourceId: 'res-007',
     borrower: 'Sarah Kim',
     borrowerClass: 'Staff',
@@ -177,7 +177,7 @@ const bookings = [
     notes: 'Staff meeting notes',
   },
   {
-    id: uuidv4(),
+    id: randomUUID(),
     resourceId: 'res-001',
     borrower: 'Ms. Brown',
     borrowerClass: 'Year 7',
@@ -189,7 +189,7 @@ const bookings = [
     notes: 'Maths assessment completed',
   },
   {
-    id: uuidv4(),
+    id: randomUUID(),
     resourceId: 'res-009',
     borrower: 'Jake Thompson',
     borrowerClass: 'Year 8',

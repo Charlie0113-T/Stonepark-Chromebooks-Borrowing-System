@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { loginWithEmail, getGoogleLoginUrl } from '../api';
 
+const ALLOWED_EMAIL_DOMAIN = '@cloud.edu.pe.ca';
+
 interface Props {
   onLogin: (token: string, name: string) => void;
 }
@@ -14,6 +16,10 @@ export default function LoginForm({ onLogin }: Props) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) { setError('Email is required.'); return; }
+    if (!email.toLowerCase().endsWith(ALLOWED_EMAIL_DOMAIN)) {
+      setError(`Only ${ALLOWED_EMAIL_DOMAIN} accounts are allowed.`);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -50,11 +56,12 @@ export default function LoginForm({ onLogin }: Props) {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@stonepark.school.nz"
+              placeholder={`you${ALLOWED_EMAIL_DOMAIN}`}
               className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
               style={{ borderColor: '#ccc' }}
               required
             />
+            <p className="mt-1 text-xs text-gray-500">Allowed domain: {ALLOWED_EMAIL_DOMAIN}</p>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Name (optional)</label>

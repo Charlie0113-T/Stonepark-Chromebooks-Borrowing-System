@@ -13,8 +13,37 @@ const createSchoolsRouter = require('./src/routes/schools');
 const app = express();
 const PORT = process.env.PORT || 4000;
 
+function parseCorsOrigins(value) {
+  if (!value) return null;
+  return value
+    .split(',')
+    .map((v) => v.trim())
+    .filter(Boolean);
+}
+
+const allowedOrigins = parseCorsOrigins(process.env.CORS_ORIGIN);
+
+const corsOptions = {
+  origin(origin, callback) {
+    // Allow non-browser requests (curl, health checks, server-to-server).
+    if (!origin) return callback(null, true);
+
+    if (!allowedOrigins || allowedOrigins.length === 0) {
+      return callback(null, true);
+    }
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error(`Origin not allowed by CORS: ${origin}`));
+  },
+  credentials: true,
+};
+
 // ── Middleware ────────────────────────────────────────────────────────────────
-app.use(cors());
+app.set('trust proxy', 1);
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // ── Routes ────────────────────────────────────────────────────────────────────
@@ -26,6 +55,7 @@ app.use('/api/stats', createStatsRouter());
 
 // Health-check
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
+app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 
 // 404 handler
 app.use((_req, res) => res.status(404).json({ success: false, message: 'Not found.' }));
@@ -37,8 +67,10 @@ app.use((err, _req, res, _next) => {
   res.status(500).json({ success: false, message: 'Internal server error.' });
 });
 
-app.listen(PORT, () => {
-  console.log(`Stonepark Intermediate School Chromebook API running on http://localhost:${PORT}`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Stonepark Intermediate School Chromebook API running on http://localhost:${PORT}`);
+  });
+}
 
 module.exports = app;

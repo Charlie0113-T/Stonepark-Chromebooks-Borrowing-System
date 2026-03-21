@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import './App.css';
-import { fetchResources, fetchSchools, fetchStats, School } from './api';
+import { API_BASE_URL, fetchResources, fetchSchools, fetchStats, School } from './api';
 import AddResourceForm from './components/AddResourceForm';
 import AllBookings from './components/AllBookings';
 import BookingForm from './components/BookingForm';
@@ -14,6 +14,10 @@ import { StatusDot } from './components/StatusBadge';
 import { Resource, Stats } from './types';
 
 type Tab = 'dashboard' | 'bookings' | 'calendar' | 'stats';
+
+function envTrue(value: string | undefined) {
+  return (value || '').trim().toLowerCase() === 'true';
+}
 
 function App() {
   const [resources, setResources] = useState<Resource[]>([]);
@@ -34,7 +38,7 @@ function App() {
     }
   });
   const [showLogin, setShowLogin] = useState(false);
-  const bypassAuth = !process.env.REACT_APP_REQUIRE_AUTH;
+  const bypassAuth = !envTrue(process.env.REACT_APP_REQUIRE_AUTH);
 
   // Modal states
   const [bookingResource, setBookingResource] = useState<Resource | null>(null);
@@ -57,7 +61,8 @@ function App() {
       setResources(res);
       setStats(st);
     } catch {
-      setError('Failed to load data. Make sure the backend is running on port 4000.');
+      const target = API_BASE_URL || 'same-origin /api';
+      setError(`Failed to load data. Check backend/API URL: ${target}`);
     } finally {
       setLoading(false);
     }
@@ -148,6 +153,15 @@ function App() {
             <p className="text-xs text-gray-300 mt-0.5">Borrowing &amp; Reservation System</p>
           </div>
           <div className="flex items-center gap-3">
+            <a
+              href="mailto:charlesisworkinghard@gmail.com?subject=Stonepark%20Chromebook%20Feedback"
+              className="px-2 py-1 rounded border border-gray-400 text-gray-200 hover:bg-gray-600 text-xs font-medium inline-flex items-center gap-1"
+              title="Send feedback"
+              aria-label="Send feedback email"
+            >
+              <span aria-hidden="true">✉</span>
+              <span className="hidden sm:inline">Feedback</span>
+            </a>
             {stats && (
               <div className="hidden sm:flex items-center gap-4 text-sm">
                 <div className="flex items-center gap-1.5">

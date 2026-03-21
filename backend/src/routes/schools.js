@@ -7,7 +7,7 @@
 
 const express = require('express');
 const rateLimit = require('express-rate-limit');
-const { v4: uuidv4 } = require('uuid');
+const { randomUUID } = require('node:crypto');
 const { schoolsDB } = require('../db/database');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 
@@ -24,13 +24,13 @@ module.exports = function createSchoolsRouter() {
   const router = express.Router();
 
   // GET /api/schools
-  router.get('/', (req, res) => {
-    res.json({ success: true, data: schoolsDB.getAll() });
+  router.get('/', async (req, res) => {
+    res.json({ success: true, data: await schoolsDB.getAll() });
   });
 
   // GET /api/schools/:id
-  router.get('/:id', (req, res) => {
-    const school = schoolsDB.getById(req.params.id);
+  router.get('/:id', async (req, res) => {
+    const school = await schoolsDB.getById(req.params.id);
     if (!school) {
       return res.status(404).json({ success: false, message: 'School not found.' });
     }
@@ -38,12 +38,12 @@ module.exports = function createSchoolsRouter() {
   });
 
   // POST /api/schools  – create a new school/campus
-  router.post('/', createSchoolLimiter, requireAuth, requireAdmin, (req, res) => {
+  router.post('/', createSchoolLimiter, requireAuth, requireAdmin, async (req, res) => {
     const { name, campus } = req.body;
     if (!name) {
       return res.status(400).json({ success: false, message: 'name is required.' });
     }
-    const school = schoolsDB.create({ id: uuidv4(), name, campus: campus || 'Main Campus' });
+    const school = await schoolsDB.create({ id: randomUUID(), name, campus: campus || 'Main Campus' });
     res.status(201).json({ success: true, data: school });
   });
 

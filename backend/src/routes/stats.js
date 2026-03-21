@@ -10,16 +10,16 @@ const { getBookedQuantityDB, isBookingOverdue } = require('../models/booking');
 module.exports = function createStatsRouter() {
   const router = express.Router();
 
-  router.get('/', (req, res) => {
+  router.get('/', async (req, res) => {
     const { schoolId } = req.query;
     const now = new Date().toISOString();
 
-    const resources = resourcesDB.getAll(schoolId);
-    const bookings = bookingsDB.getAll({ schoolId });
+    const resources = await resourcesDB.getAll(schoolId);
+    const bookings = await bookingsDB.getAll({ schoolId });
 
     // Per-resource utilisation
-    const resourceStats = resources.map((r) => {
-      const currentBooked = getBookedQuantityDB(r.id, now, now);
+    const resourceStats = await Promise.all(resources.map(async (r) => {
+      const currentBooked = await getBookedQuantityDB(r.id, now, now);
       const utilisation = r.totalQuantity > 0 ? Math.round((currentBooked / r.totalQuantity) * 100) : 0;
       return {
         id: r.id,
@@ -31,7 +31,7 @@ module.exports = function createStatsRouter() {
         availableNow: r.totalQuantity - currentBooked,
         utilisationPct: utilisation,
       };
-    });
+    }));
 
     // Totals
     const totalResources = resources.length;
