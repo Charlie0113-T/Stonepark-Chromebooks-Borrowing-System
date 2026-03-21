@@ -360,5 +360,4 @@ The database layer is isolated in `backend/src/db/database.js`. To switch from S
 
 ## 📝 License
 
-MIT — Stonepark Intermediate School
-
+Apache License 2.0
