@@ -257,15 +257,39 @@ async function initPostgres() {
   const schoolCount = await pgPool.query('SELECT COUNT(*)::int as cnt FROM schools');
   if (schoolCount.rows[0].cnt > 0) return;
 
-  await schoolsDB.create({ id: 'school-default', name: 'Stonepark Intermediate School', campus: 'Main Campus' });
+  await pgPool.query('INSERT INTO schools (id, name, campus) VALUES ($1, $2, $3)', [
+    'school-default',
+    'Stonepark Intermediate School',
+    'Main Campus',
+  ]);
 
   for (const r of buildSeedResources()) {
-    await resourcesDB.create({ ...r, schoolId: 'school-default' });
+    await pgPool.query(
+      `INSERT INTO resources (id, school_id, type, name, class_room, total_quantity, description)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [r.id, 'school-default', r.type, r.name, r.classRoom, r.totalQuantity, r.description || '']
+    );
   }
 
   const { randomUUID } = require('node:crypto');
   for (const b of buildSeedBookings()) {
-    await bookingsDB.create({ id: randomUUID(), actualReturnTime: null, ...b });
+    await pgPool.query(
+      `INSERT INTO bookings (id, resource_id, borrower, borrower_class, quantity,
+       start_time, end_time, actual_return_time, status, notes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+      [
+        randomUUID(),
+        b.resourceId,
+        b.borrower,
+        b.borrowerClass,
+        b.quantity,
+        b.startTime,
+        b.endTime,
+        b.actualReturnTime || null,
+        b.status,
+        b.notes || '',
+      ]
+    );
   }
 }
 
@@ -334,15 +358,50 @@ async function seedSqliteIfEmpty() {
   const schoolCount = sqlite.prepare('SELECT COUNT(*) as cnt FROM schools').get().cnt;
   if (schoolCount > 0) return;
 
-  await schoolsDB.create({ id: 'school-default', name: 'Stonepark Intermediate School', campus: 'Main Campus' });
+  sqlite.prepare('INSERT INTO schools (id, name, campus) VALUES (@id, @name, @campus)').run({
+    id: 'school-default',
+    name: 'Stonepark Intermediate School',
+    campus: 'Main Campus',
+  });
+
+  const insertResource = sqlite.prepare(
+    `INSERT INTO resources (id, school_id, type, name, class_room, total_quantity, description)
+     VALUES (@id, @schoolId, @type, @name, @classRoom, @totalQuantity, @description)`
+  );
 
   for (const r of buildSeedResources()) {
-    await resourcesDB.create({ ...r, schoolId: 'school-default' });
+    insertResource.run({
+      id: r.id,
+      schoolId: 'school-default',
+      type: r.type,
+      name: r.name,
+      classRoom: r.classRoom,
+      totalQuantity: r.totalQuantity,
+      description: r.description || '',
+    });
   }
+
+  const insertBooking = sqlite.prepare(
+    `INSERT INTO bookings (id, resource_id, borrower, borrower_class, quantity,
+     start_time, end_time, actual_return_time, status, notes)
+     VALUES (@id, @resourceId, @borrower, @borrowerClass, @quantity,
+     @startTime, @endTime, @actualReturnTime, @status, @notes)`
+  );
 
   const { randomUUID } = require('node:crypto');
   for (const b of buildSeedBookings()) {
-    await bookingsDB.create({ id: randomUUID(), actualReturnTime: null, ...b });
+    insertBooking.run({
+      id: randomUUID(),
+      resourceId: b.resourceId,
+      borrower: b.borrower,
+      borrowerClass: b.borrowerClass,
+      quantity: b.quantity,
+      startTime: b.startTime,
+      endTime: b.endTime,
+      actualReturnTime: b.actualReturnTime || null,
+      status: b.status,
+      notes: b.notes || '',
+    });
   }
 }
 
