@@ -191,10 +191,21 @@ function buildSeedBookings() {
 async function initPostgres() {
   const { Pool } = require('pg');
 
+  console.log('[DB] Initializing PostgreSQL connection...');
   pgPool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: process.env.PGSSLMODE === 'disable' ? false : { rejectUnauthorized: false },
+    connectionTimeoutMillis: 10000,
+    idleTimeoutMillis: 10000,
+    max: 5,
   });
+
+  pgPool.on('error', (err) => {
+    console.error('[DB] PostgreSQL pool error:', err);
+  });
+
+  await pgPool.query('SELECT 1');
+  console.log('[DB] PostgreSQL connection OK.');
 
   await pgPool.query(`
     CREATE TABLE IF NOT EXISTS schools (

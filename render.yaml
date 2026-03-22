@@ -11,6 +11,8 @@ services:
         value: 20
       - key: NODE_ENV
         value: production
+      - key: PGSSLMODE
+        value: require
       - key: AUTH_BYPASS
         value: "false"
       - key: ALLOWED_EMAIL_DOMAIN
