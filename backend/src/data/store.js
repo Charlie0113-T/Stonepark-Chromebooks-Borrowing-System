@@ -28,38 +28,6 @@ const RESOURCE_STATUS = {
 // Seed resources
 const resources = [
   {
-    id: 'res-001',
-    type: RESOURCE_TYPE.CABINET,
-    name: 'Cabinet A',
-    classRoom: 'Room 101',
-    totalQuantity: 30,
-    description: 'Year 7 charging cabinet',
-  },
-  {
-    id: 'res-002',
-    type: RESOURCE_TYPE.CABINET,
-    name: 'Cabinet B',
-    classRoom: 'Room 102',
-    totalQuantity: 30,
-    description: 'Year 8 charging cabinet',
-  },
-  {
-    id: 'res-003',
-    type: RESOURCE_TYPE.CABINET,
-    name: 'Cabinet C',
-    classRoom: 'Room 103',
-    totalQuantity: 20,
-    description: 'Science department shared cabinet',
-  },
-  {
-    id: 'res-004',
-    type: RESOURCE_TYPE.CABINET,
-    name: 'Cabinet D',
-    classRoom: 'Room 201',
-    totalQuantity: 25,
-    description: 'Digital Arts classroom cabinet',
-  },
-  {
     id: 'res-005',
     type: RESOURCE_TYPE.SINGLE,
     name: 'Chromebook #001',
@@ -101,12 +69,25 @@ const resources = [
   },
 ];
 
+for (const grade of ['G7', 'G8', 'G9']) {
+  for (let i = 1; i <= 5; i += 1) {
+    resources.push({
+      id: `res-${grade.toLowerCase()}-cab-${i}`,
+      type: RESOURCE_TYPE.CABINET,
+      name: `${grade} Charging Bay ${i}`,
+      classRoom: `${grade} Learning Hub ${i}`,
+      totalQuantity: 30,
+      description: `${grade} dedicated charging cabinet`,
+    });
+  }
+}
+
 // Seed bookings (active, returned, cancelled, and overdue scenarios)
 const now = new Date();
 const bookings = [
   {
     id: randomUUID(),
-    resourceId: 'res-001',
+    resourceId: 'res-g7-cab-1',
     borrower: 'Ms. Johnson',
     borrowerClass: 'Year 7',
     quantity: 15,
@@ -118,7 +99,7 @@ const bookings = [
   },
   {
     id: randomUUID(),
-    resourceId: 'res-002',
+    resourceId: 'res-g8-cab-1',
     borrower: 'Mr. Smith',
     borrowerClass: 'Year 8',
     quantity: 30,
@@ -142,7 +123,7 @@ const bookings = [
   },
   {
     id: randomUUID(),
-    resourceId: 'res-003',
+    resourceId: 'res-g9-cab-1',
     borrower: 'Mrs. Williams',
     borrowerClass: 'Year 9',
     quantity: 10,
@@ -154,7 +135,7 @@ const bookings = [
   },
   {
     id: randomUUID(),
-    resourceId: 'res-004',
+    resourceId: 'res-g8-cab-2',
     borrower: 'Mr. Patel',
     borrowerClass: 'Year 10',
     quantity: 20,
@@ -178,7 +159,7 @@ const bookings = [
   },
   {
     id: randomUUID(),
-    resourceId: 'res-001',
+    resourceId: 'res-g7-cab-2',
     borrower: 'Ms. Brown',
     borrowerClass: 'Year 7',
     quantity: 10,

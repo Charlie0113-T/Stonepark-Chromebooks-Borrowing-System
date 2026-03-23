@@ -44,10 +44,6 @@ function rowToBooking(row) {
 
 function buildSeedResources() {
   const seedResources = [
-    { id: 'res-001', type: 'cabinet', name: 'Cabinet A', classRoom: 'Room 101', totalQuantity: 30, description: 'Year 7 charging cabinet' },
-    { id: 'res-002', type: 'cabinet', name: 'Cabinet B', classRoom: 'Room 102', totalQuantity: 30, description: 'Year 8 charging cabinet' },
-    { id: 'res-003', type: 'cabinet', name: 'Cabinet C', classRoom: 'Room 103', totalQuantity: 20, description: 'Science department shared cabinet' },
-    { id: 'res-004', type: 'cabinet', name: 'Cabinet D', classRoom: 'Room 201', totalQuantity: 25, description: 'Digital Arts classroom cabinet' },
     { id: 'res-005', type: 'single', name: 'Chromebook #001', classRoom: 'Library', totalQuantity: 1, description: 'Library Chromebook for student research' },
     { id: 'res-006', type: 'single', name: 'Chromebook #002', classRoom: 'Library', totalQuantity: 1, description: 'Library Chromebook for student research' },
     { id: 'res-007', type: 'single', name: 'Chromebook #003', classRoom: 'Staff Room', totalQuantity: 1, description: 'Staff shared Chromebook' },
@@ -136,13 +132,13 @@ function buildSeedBookings() {
   const now = new Date();
   return [
     {
-      resourceId: 'res-001', borrower: 'Ms. Johnson', borrowerClass: 'Year 7', quantity: 15,
+      resourceId: 'res-g7-cab-1', borrower: 'Ms. Johnson', borrowerClass: 'Year 7', quantity: 15,
       startTime: new Date(now.getTime() - 60 * 60 * 1000).toISOString(),
       endTime: new Date(now.getTime() + 2 * 60 * 60 * 1000).toISOString(),
       status: 'active', notes: 'Year 7 Science project',
     },
     {
-      resourceId: 'res-002', borrower: 'Mr. Smith', borrowerClass: 'Year 8', quantity: 30,
+      resourceId: 'res-g8-cab-1', borrower: 'Mr. Smith', borrowerClass: 'Year 8', quantity: 30,
       startTime: new Date(now.getTime() - 30 * 60 * 1000).toISOString(),
       endTime: new Date(now.getTime() + 90 * 60 * 1000).toISOString(),
       status: 'active', notes: 'Year 8 Digital Literacy exam',
@@ -155,7 +151,7 @@ function buildSeedBookings() {
       status: 'returned', notes: 'Independent research',
     },
     {
-      resourceId: 'res-g7-cab-1', borrower: 'Mrs. Williams', borrowerClass: 'Year 9', quantity: 10,
+      resourceId: 'res-g9-cab-1', borrower: 'Mrs. Williams', borrowerClass: 'Year 9', quantity: 10,
       startTime: new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString(),
       endTime: new Date(now.getTime() + 1 * 60 * 60 * 1000).toISOString(),
       status: 'active', notes: 'Geography mapping exercise',
@@ -173,7 +169,7 @@ function buildSeedBookings() {
       status: 'active', notes: 'Staff meeting notes',
     },
     {
-      resourceId: 'res-001', borrower: 'Ms. Brown', borrowerClass: 'Year 7', quantity: 10,
+      resourceId: 'res-g7-cab-2', borrower: 'Ms. Brown', borrowerClass: 'Year 7', quantity: 10,
       startTime: new Date(now.getTime() - 4 * 60 * 60 * 1000).toISOString(),
       endTime: new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString(),
       actualReturnTime: new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString(),

@@ -1,4 +1,5 @@
 import React from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import { Resource } from '../types';
 import { StatusBadge } from './StatusBadge';
 
@@ -14,6 +15,17 @@ const ResourceCard: React.FC<ResourceCardProps> = ({ resource, onBook, onViewBoo
     resource.totalQuantity > 0
       ? Math.round((resource.currentBooked / resource.totalQuantity) * 100)
       : 0;
+
+  const gradeMatch = resource.name.match(/^G([7-9])\b/i);
+  const isGradeCabinet = resource.type === 'cabinet' && !!gradeMatch;
+  const qrValue = isGradeCabinet
+    ? JSON.stringify({
+        resourceId: resource.id,
+        resourceName: resource.name,
+        classRoom: resource.classRoom,
+        type: resource.type,
+      })
+    : '';
 
   const barColor =
     resource.status === 'available'
@@ -45,6 +57,25 @@ const ResourceCard: React.FC<ResourceCardProps> = ({ resource, onBook, onViewBoo
           <span className="text-xs text-gray-500 truncate">{resource.description}</span>
         )}
       </div>
+
+      {isGradeCabinet && (
+        <div className="flex items-center gap-3 rounded border p-2" style={{ borderColor: '#e0e0e0' }}>
+          <div className="shrink-0">
+            <QRCodeSVG
+              value={qrValue}
+              size={88}
+              bgColor="#ffffff"
+              fgColor="#333333"
+              level="H"
+              includeMargin
+            />
+          </div>
+          <div className="text-xs text-gray-600">
+            <div className="font-medium text-gray-900">G{gradeMatch?.[1]} Cabinet QR</div>
+            <div>Scan to open this charging bay.</div>
+          </div>
+        </div>
+      )}
 
       {/* Overdue indicator */}
       {resource.overdueBookings > 0 && (

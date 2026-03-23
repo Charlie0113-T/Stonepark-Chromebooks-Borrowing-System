@@ -5,7 +5,7 @@
  * This file is registered via src/serviceWorkerRegistration.ts.
  */
 
-const CACHE_NAME = 'stonepark-cb-v1'; // Increment to v2, v3, etc. when cache-affecting changes are made
+const CACHE_NAME = 'stonepark-cb-v2'; // Increment to v3, v4, etc. when cache-affecting changes are made
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -37,6 +37,21 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
+
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response.ok) {
+            const cloned = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, cloned));
+          }
+          return response;
+        })
+        .catch(() => caches.match(request).then((cached) => cached || caches.match('/index.html')))
+    );
+    return;
+  }
 
   // Network-first for API calls
   if (url.pathname.startsWith('/api/')) {

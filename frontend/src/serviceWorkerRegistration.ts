@@ -4,6 +4,7 @@
  */
 
 export function register() {
+  if (process.env.NODE_ENV !== 'production') return;
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       const swUrl = `${process.env.PUBLIC_URL}/sw.js`;
@@ -11,13 +12,18 @@ export function register() {
         .register(swUrl)
         .then((registration) => {
           console.log('[SW] Registered:', registration.scope);
+          registration.update();
           registration.onupdatefound = () => {
             const installingWorker = registration.installing;
             if (!installingWorker) return;
             installingWorker.onstatechange = () => {
               if (installingWorker.state === 'installed') {
                 if (navigator.serviceWorker.controller) {
-                  console.log('[SW] New content available; will be used after refresh.');
+                  console.log('[SW] New content available; reloading once.');
+                  if (!sessionStorage.getItem('sw_reloaded')) {
+                    sessionStorage.setItem('sw_reloaded', '1');
+                    window.location.reload();
+                  }
                 } else {
                   console.log('[SW] Content cached for offline use.');
                 }
