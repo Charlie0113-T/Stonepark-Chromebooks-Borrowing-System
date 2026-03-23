@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { createBooking } from '../api';
@@ -13,7 +13,6 @@ interface BookingFormProps {
 const BookingForm: React.FC<BookingFormProps> = ({ resource, onSuccess, onCancel }) => {
   const [borrower, setBorrower] = useState('');
   const [borrowerClass, setBorrowerClass] = useState('');
-  const [quantity, setQuantity] = useState(resource.type === 'single' ? 1 : 1);
   const [startTime, setStartTime] = useState<Date | null>(new Date());
   const [endTime, setEndTime] = useState<Date | null>(
     new Date(Date.now() + 60 * 60 * 1000)
@@ -22,9 +21,6 @@ const BookingForm: React.FC<BookingFormProps> = ({ resource, onSuccess, onCancel
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    setQuantity(resource.type === 'single' ? 1 : 1);
-  }, [resource]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,7 +39,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ resource, onSuccess, onCancel
       resourceId: resource.id,
       borrower: borrower.trim(),
       borrowerClass: borrowerClass.trim(),
-      quantity: resource.type === 'single' ? 1 : quantity,
+      quantity: resource.type === 'single' ? 1 : resource.totalQuantity,
       startTime: startTime.toISOString(),
       endTime: endTime.toISOString(),
       notes: notes.trim(),
@@ -115,21 +111,8 @@ const BookingForm: React.FC<BookingFormProps> = ({ resource, onSuccess, onCancel
 
       {/* Quantity (cabinet only) */}
       {resource.type === 'cabinet' && (
-        <div>
-          <label className={labelClass} htmlFor="quantity">
-            Number of Chromebooks * (max {resource.availableNow})
-          </label>
-          <input
-            id="quantity"
-            type="number"
-            required
-            min={1}
-            max={resource.availableNow}
-            value={quantity}
-            onChange={(e) => setQuantity(parseInt(e.target.value, 10))}
-            className={inputClass}
-            style={{ borderColor: '#333333' }}
-          />
+        <div className="text-sm text-gray-600">
+          This booking reserves the entire cabinet ({resource.totalQuantity} devices).
         </div>
       )}
 
