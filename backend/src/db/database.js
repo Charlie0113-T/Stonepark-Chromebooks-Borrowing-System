@@ -7,6 +7,7 @@
 
 const path = require('path');
 const fs = require('fs');
+const bcrypt = require('bcryptjs');
 
 const USE_POSTGRES = !!process.env.DATABASE_URL;
 
@@ -17,6 +18,23 @@ let initPromise = null;
 
 const LEGACY_CABINET_IDS = ['res-001', 'res-002', 'res-003', 'res-004'];
 const LEGACY_CABINET_NAMES = ['Cabinet A', 'Cabinet B', 'Cabinet C', 'Cabinet D', 'Cabinet D2'];
+
+function parseAdminUsers() {
+  const raw = (process.env.ADMIN_USERS || '').trim();
+  if (!raw) return [];
+  return raw
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .map((entry) => {
+      const [email, password] = entry.split(':');
+      return {
+        email: (email || '').trim().toLowerCase(),
+        password: (password || '').trim(),
+      };
+    })
+    .filter((u) => u.email && u.password);
+}
 
 function rowToResource(row) {
   return {
@@ -248,10 +266,17 @@ async function initPostgres() {
       name TEXT NOT NULL,
       role TEXT NOT NULL DEFAULT 'staff' CHECK(role IN ('admin', 'staff')),
       google_id TEXT,
+      password_hash TEXT,
+      reset_token TEXT,
+      reset_expires TIMESTAMPTZ,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       FOREIGN KEY (school_id) REFERENCES schools(id)
     );
   `);
+
+  await pgPool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT');
+  await pgPool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token TEXT');
+  await pgPool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_expires TIMESTAMPTZ');
 
   const schoolCount = await pgPool.query('SELECT COUNT(*)::int as cnt FROM schools');
   if (schoolCount.rows[0].cnt > 0) return;
@@ -347,10 +372,27 @@ function initSqlite() {
       name TEXT NOT NULL,
       role TEXT NOT NULL DEFAULT 'staff' CHECK(role IN ('admin', 'staff')),
       google_id TEXT,
+      password_hash TEXT,
+      reset_token TEXT,
+      reset_expires TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       FOREIGN KEY (school_id) REFERENCES schools(id)
     );
   `);
+
+  ensureSqliteUserColumns();
+}
+
+function ensureSqliteUserColumns() {
+  const columns = sqlite.prepare('PRAGMA table_info(users)').all().map((c) => c.name);
+  const ensureColumn = (name, type) => {
+    if (columns.includes(name)) return;
+    sqlite.prepare(`ALTER TABLE users ADD COLUMN ${name} ${type}`).run();
+  };
+
+  ensureColumn('password_hash', 'TEXT');
+  ensureColumn('reset_token', 'TEXT');
+  ensureColumn('reset_expires', 'TEXT');
 }
 
 async function seedSqliteIfEmpty() {
@@ -411,15 +453,63 @@ async function ensureInit() {
     if (USE_POSTGRES) {
       await initPostgres();
       await removeLegacyCabinets();
+      await ensureAdminUsers();
       return;
     }
 
     initSqlite();
     await seedSqliteIfEmpty();
     await removeLegacyCabinets();
+    await ensureAdminUsers();
   })();
 
   return initPromise;
+}
+
+async function ensureAdminUsers() {
+  const admins = parseAdminUsers();
+  if (admins.length === 0) return;
+
+  for (const admin of admins) {
+    const passwordHash = await bcrypt.hash(admin.password, 10);
+    const name = admin.email.split('@')[0];
+
+    if (USE_POSTGRES) {
+      await pgPool.query(
+        `INSERT INTO users (id, school_id, email, name, role, password_hash)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         ON CONFLICT (email) DO UPDATE SET
+           role = EXCLUDED.role,
+           name = EXCLUDED.name,
+           password_hash = EXCLUDED.password_hash`,
+        [
+          `admin-${admin.email}`,
+          'school-default',
+          admin.email,
+          name,
+          'admin',
+          passwordHash,
+        ]
+      );
+      continue;
+    }
+
+    sqlite.prepare(
+      `INSERT INTO users (id, school_id, email, name, role, password_hash)
+       VALUES (@id, @schoolId, @email, @name, @role, @passwordHash)
+       ON CONFLICT(email) DO UPDATE SET
+         role = excluded.role,
+         name = excluded.name,
+         password_hash = excluded.password_hash`
+    ).run({
+      id: `admin-${admin.email}`,
+      schoolId: 'school-default',
+      email: admin.email,
+      name,
+      role: 'admin',
+      passwordHash,
+    });
+  }
 }
 
 async function removeLegacyCabinets() {
