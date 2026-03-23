@@ -8,12 +8,13 @@ import BookingList from './components/BookingList';
 import CalendarView from './components/CalendarView';
 import LoginForm from './components/LoginForm';
 import Modal from './components/Modal';
+import QRCodeGallery from './components/QRCodeGallery';
 import ResourceCard from './components/ResourceCard';
 import StatsView from './components/StatsView';
 import { StatusDot } from './components/StatusBadge';
 import { Resource, Stats } from './types';
 
-type Tab = 'dashboard' | 'bookings' | 'calendar' | 'stats';
+type Tab = 'dashboard' | 'bookings' | 'calendar' | 'stats' | 'qr';
 
 function envTrue(value: string | undefined) {
   return (value || '').trim().toLowerCase() === 'true';
@@ -247,6 +248,9 @@ function App() {
           <button className={tabClass('stats')} onClick={() => setTab('stats')}>
             📊 Statistics
           </button>
+          <button className={tabClass('qr')} onClick={() => setTab('qr')}>
+            🧾 QR Codes
+          </button>
         </div>
       </div>
 
@@ -376,8 +380,10 @@ function App() {
           <AllBookings onStatusChange={loadData} />
         ) : tab === 'calendar' ? (
           <CalendarView />
-        ) : (
+        ) : tab === 'stats' ? (
           stats && <StatsView stats={stats} />
+        ) : (
+          <QRCodeGallery resources={resources} />
         )}
       </main>
 

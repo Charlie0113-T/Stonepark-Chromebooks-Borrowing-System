@@ -1,5 +1,4 @@
 import React from 'react';
-import { QRCodeSVG } from 'qrcode.react';
 import { Resource } from '../types';
 import { StatusBadge } from './StatusBadge';
 
@@ -16,8 +15,6 @@ const ResourceCard: React.FC<ResourceCardProps> = ({ resource, onBook, onViewBoo
       ? Math.round((resource.currentBooked / resource.totalQuantity) * 100)
       : 0;
 
-  const isCabinet = resource.type === 'cabinet';
-  const cabinetQrValue = `resource:${resource.id}`;
 
   const barColor =
     resource.status === 'available'
@@ -49,25 +46,6 @@ const ResourceCard: React.FC<ResourceCardProps> = ({ resource, onBook, onViewBoo
           <span className="text-xs text-gray-500 truncate">{resource.description}</span>
         )}
       </div>
-
-      {isCabinet && (
-        <div className="flex items-center gap-3 rounded border p-2" style={{ borderColor: '#e0e0e0' }}>
-          <div className="shrink-0">
-            <QRCodeSVG
-              value={cabinetQrValue}
-              size={88}
-              bgColor="#ffffff"
-              fgColor="#333333"
-              level="H"
-              includeMargin
-            />
-          </div>
-          <div className="text-xs text-gray-600">
-            <div className="font-medium text-gray-900">Cabinet QR</div>
-            <div>Stable QR for printing.</div>
-          </div>
-        </div>
-      )}
 
       {/* Overdue indicator */}
       {resource.overdueBookings > 0 && (
