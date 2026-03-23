@@ -16,7 +16,7 @@ services:
       - key: AUTH_BYPASS
         value: "false"
       - key: ALLOWED_EMAILS
-        value: "chta0655@cloud.edu.pe.ca,dmdunn@cloud.edu.pe.ca"
+        value: "chta0655@cloud.edu.pe.ca,dmdunn@cloud.edu.pe.ca,wxpoirier@cloud.edu.pe.ca,sjvos@cloud.edu.pe.ca,st_srchisholm@cloud.edu.pe.ca,sdmacswain@cloud.edu.pe.ca,tamisener@cloud.edu.pe.ca,cmorrison@cloud.edu.pe.ca,mpcarver@cloud.edu.pe.ca,zcgallison@cloud.edu.pe.ca"
       - key: ADMIN_USERS
         sync: false
       - key: CORS_ORIGIN
