@@ -61,6 +61,50 @@ module.exports = function createAuthRouter() {
     res.json({ success: true, data: req.user });
   });
 
+  // POST /api/auth/signup – create account (whitelist only)
+  router.post('/signup', authLimiter, async (req, res) => {
+    const { email, password, name } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ success: false, message: 'email and password are required.' });
+    }
+    if (!isAllowedEmail(email)) {
+      return res.status(403).json({ success: false, message: 'This email is not on the whitelist.' });
+    }
+    if (password.length < 8) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 8 characters.' });
+    }
+
+    const existing = await usersDB.getByEmail(email);
+    if (existing) {
+      return res.status(409).json({ success: false, message: 'Account already exists. Please sign in.' });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    const displayName = name && name.trim() ? name.trim() : email.split('@')[0];
+    const user = await usersDB.createUser({
+      email,
+      name: displayName,
+      role: 'staff',
+      passwordHash,
+    });
+
+    const token = signToken({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      schoolId: user.school_id || 'school-default',
+    });
+
+    res.status(201).json({ success: true, data: { user: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      schoolId: user.school_id || 'school-default',
+    }, token } });
+  });
+
   // POST /api/auth/login – password-based login
   router.post('/login', authLimiter, async (req, res) => {
     const { email, password } = req.body;

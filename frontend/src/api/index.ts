@@ -121,6 +121,11 @@ export async function loginWithEmail(email: string, password: string): Promise<{
   return res.data.data;
 }
 
+export async function signupWithEmail(email: string, password: string, name?: string): Promise<{ user: AuthUser; token: string }> {
+  const res = await api.post<{ success: boolean; data: { user: AuthUser; token: string } }>('/api/auth/signup', { email, password, name });
+  return res.data.data;
+}
+
 export async function requestPasswordReset(email: string): Promise<void> {
   await api.post('/api/auth/forgot-password', { email });
 }

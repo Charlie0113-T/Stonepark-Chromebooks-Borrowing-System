@@ -801,6 +801,34 @@ const usersDB = {
     ).run(newPasswordHash, user.id);
     return user;
   },
+
+  async createUser({ email, name, role, passwordHash, schoolId = 'school-default' }) {
+    await ensureInit();
+    const { randomUUID } = require('node:crypto');
+    const id = randomUUID();
+
+    if (USE_POSTGRES) {
+      await pgPool.query(
+        `INSERT INTO users (id, school_id, email, name, role, password_hash)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [id, schoolId, email.toLowerCase(), name, role, passwordHash]
+      );
+      return this.getByEmail(email);
+    }
+
+    sqlite.prepare(
+      `INSERT INTO users (id, school_id, email, name, role, password_hash)
+       VALUES (@id, @schoolId, @email, @name, @role, @passwordHash)`
+    ).run({
+      id,
+      schoolId,
+      email: email.toLowerCase(),
+      name,
+      role,
+      passwordHash,
+    });
+    return this.getByEmail(email);
+  },
 };
 
 const schoolsDB = {
