@@ -1,5 +1,6 @@
 import React from 'react';
 import { QRCodeSVG } from 'qrcode.react';
+import { API_BASE_URL } from '../api';
 import { Booking } from '../types';
 
 interface Props {
@@ -9,17 +10,14 @@ interface Props {
 }
 
 export default function QRCodeModal({ booking, resourceName, onClose }: Props) {
-  const qrValue = JSON.stringify({
-    bookingId: booking.id,
-    resourceId: booking.resourceId,
-    borrower: booking.borrower,
-    status: booking.status,
-  });
+  const qrValue = `${API_BASE_URL}/api/bookings/${booking.id}/return-via-qr`;
 
   return (
     <div className="flex flex-col items-center gap-4 py-2">
       <p className="text-sm text-gray-600 text-center">
-        Scan this QR code to check-in / check-out <strong>{resourceName}</strong>
+        Scan this QR code to return <strong>{resourceName}</strong>
+        <br />
+        Admin credentials are required to confirm.
       </p>
 
       <div className="border p-4 rounded bg-white" style={{ borderColor: '#e0e0e0' }}>

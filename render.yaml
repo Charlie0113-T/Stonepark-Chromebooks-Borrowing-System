@@ -15,8 +15,10 @@ services:
         value: require
       - key: AUTH_BYPASS
         value: "false"
-      - key: ALLOWED_EMAIL_DOMAIN
-        value: "@cloud.edu.pe.ca"
+      - key: ALLOWED_EMAILS
+        value: "chta0655@cloud.edu.pe.ca,dmdunn@cloud.edu.pe.ca"
+      - key: ADMIN_USERS
+        sync: false
       - key: CORS_ORIGIN
         sync: false
       - key: FRONTEND_URL

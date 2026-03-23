@@ -14,6 +14,7 @@
   "type": "commonjs",
   "dependencies": {
     "better-sqlite3": "^12.6.2",
+    "bcryptjs": "^2.4.3",
     "cors": "^2.8.6",
     "date-fns": "^4.1.0",
     "express": "^5.2.1",

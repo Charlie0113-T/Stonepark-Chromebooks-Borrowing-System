@@ -3,7 +3,7 @@ import { Calendar, momentLocalizer, Event } from 'react-big-calendar';
 import moment from 'moment';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { fetchBookings, fetchResources } from '../api';
-import { Booking, Resource } from '../types';
+import { Booking } from '../types';
 
 const localizer = momentLocalizer(moment);
 
@@ -25,7 +25,6 @@ const OVERDUE_COLOR = '#dc3545';
 
 export default function CalendarView() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const [resources, setResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
@@ -36,7 +35,6 @@ export default function CalendarView() {
       const [bookings, res] = await Promise.all([fetchBookings(), fetchResources()]);
       const resourceMap: Record<string, string> = {};
       res.forEach((r) => (resourceMap[r.id] = r.name));
-      setResources(res);
 
       const calEvents: CalendarEvent[] = bookings.map((b: Booking) => ({
         bookingId: b.id,

@@ -12,13 +12,24 @@
 const express = require('express');
 const rateLimit = require('express-rate-limit');
 const { randomUUID } = require('node:crypto');
+const bcrypt = require('bcryptjs');
 const { signToken, requireAuth, AUTH_BYPASS } = require('../middleware/auth');
-const { schoolsDB } = require('../db/database');
+const { usersDB } = require('../db/database');
+const { sendEmail } = require('../services/notifications');
 
-const ALLOWED_EMAIL_DOMAIN = (process.env.ALLOWED_EMAIL_DOMAIN || '@cloud.edu.pe.ca').trim().toLowerCase();
+const DEFAULT_ALLOWED_EMAILS = ['chta0655@cloud.edu.pe.ca', 'dmdunn@cloud.edu.pe.ca'];
+
+function getAllowedEmails() {
+  const raw = (process.env.ALLOWED_EMAILS || '').trim();
+  const list = raw
+    ? raw.split(',').map((v) => v.trim().toLowerCase()).filter(Boolean)
+    : DEFAULT_ALLOWED_EMAILS;
+  return new Set(list);
+}
 
 function isAllowedEmail(email) {
-  return typeof email === 'string' && email.toLowerCase().endsWith(ALLOWED_EMAIL_DOMAIN);
+  if (!email) return false;
+  return getAllowedEmails().has(email.toLowerCase());
 }
 
 // 20 login attempts per 15 minutes per IP
@@ -50,26 +61,35 @@ module.exports = function createAuthRouter() {
     res.json({ success: true, data: req.user });
   });
 
-  // POST /api/auth/login  – dev/staff login with email (no password in dev mode)
-  // In production, replace with proper credential validation or Google OAuth.
-  router.post('/login', authLimiter, (req, res) => {
-    const { email, name } = req.body;
-    if (!email) {
-      return res.status(400).json({ success: false, message: 'email is required.' });
+  // POST /api/auth/login – password-based login
+  router.post('/login', authLimiter, async (req, res) => {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ success: false, message: 'email and password are required.' });
     }
     if (!isAllowedEmail(email)) {
-      return res.status(403).json({ success: false, message: `Only ${ALLOWED_EMAIL_DOMAIN} accounts are allowed.` });
+      return res.status(403).json({ success: false, message: 'This email is not on the whitelist.' });
     }
 
-    const user = {
-      id: randomUUID(),
-      email,
-      name: name || email.split('@')[0],
-      role: 'staff',
-      schoolId: 'school-default',
-    };
-    const token = signToken(user);
-    res.json({ success: true, data: { user, token } });
+    const user = await usersDB.verifyPassword(email, password);
+    if (!user) {
+      return res.status(401).json({ success: false, message: 'Invalid email or password.' });
+    }
+
+    const token = signToken({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      schoolId: user.school_id || 'school-default',
+    });
+    res.json({ success: true, data: { user: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      schoolId: user.school_id || 'school-default',
+    }, token } });
   });
 
   // GET /api/auth/google – redirect to Google OAuth
@@ -138,7 +158,7 @@ module.exports = function createAuthRouter() {
       const idToken = tokenData.id_token;
       const payload = JSON.parse(Buffer.from(idToken.split('.')[1], 'base64url').toString());
       if (!isAllowedEmail(payload.email)) {
-        return res.status(403).json({ success: false, message: `Only ${ALLOWED_EMAIL_DOMAIN} accounts are allowed.` });
+        return res.status(403).json({ success: false, message: 'This email is not on the whitelist.' });
       }
 
       const user = {
@@ -165,6 +185,61 @@ module.exports = function createAuthRouter() {
     res.json({ success: true, message: 'Logged out. Please discard your token.' });
   });
 
+  // POST /api/auth/forgot-password – request reset token
+  router.post('/forgot-password', authLimiter, async (req, res) => {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'email is required.' });
+    }
+    if (!isAllowedEmail(email)) {
+      return res.status(403).json({ success: false, message: 'This email is not on the whitelist.' });
+    }
+
+    const user = await usersDB.getByEmail(email);
+    if (user) {
+      const token = randomUUID();
+      const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+      await usersDB.setResetToken(email, token, expiresAt);
+
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const body = [
+        'You requested a password reset for Stonepark Chromebook Manager.',
+        '',
+        `Reset code: ${token}`,
+        `Reset page: ${frontendUrl}`,
+        '',
+        'If you did not request this, please ignore this email.',
+      ].join('\n');
+
+      await sendEmail({
+        to: email,
+        subject: 'Password reset request',
+        text: body,
+      });
+    }
+
+    res.json({ success: true, message: 'If the email exists, a reset code was sent.' });
+  });
+
+  // POST /api/auth/reset-password – reset using token
+  router.post('/reset-password', authLimiter, async (req, res) => {
+    const { token, newPassword } = req.body;
+    if (!token || !newPassword) {
+      return res.status(400).json({ success: false, message: 'token and newPassword are required.' });
+    }
+    if (newPassword.length < 8) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 8 characters.' });
+    }
+
+    const hash = await bcrypt.hash(newPassword, 10);
+    const user = await usersDB.resetPassword(token, hash);
+    if (!user) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired token.' });
+    }
+
+    res.json({ success: true, message: 'Password reset successful.' });
+  });
+
   // GET /api/auth/status – quick check of auth configuration
   router.get('/status', (req, res) => {
     res.json({
@@ -174,6 +249,7 @@ module.exports = function createAuthRouter() {
         googleOAuthConfigured: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
         smtpConfigured: !!process.env.SMTP_HOST,
         googleChatConfigured: !!process.env.GOOGLE_CHAT_WEBHOOK_URL,
+        allowedEmails: Array.from(getAllowedEmails()),
       },
     });
   });

@@ -15,6 +15,9 @@ let sqlite = null;
 
 let initPromise = null;
 
+const LEGACY_CABINET_IDS = ['res-001', 'res-002', 'res-003', 'res-004'];
+const LEGACY_CABINET_NAMES = ['Cabinet A', 'Cabinet B', 'Cabinet C', 'Cabinet D', 'Cabinet D2'];
+
 function rowToResource(row) {
   return {
     id: row.id,
@@ -407,14 +410,41 @@ async function ensureInit() {
   initPromise = (async () => {
     if (USE_POSTGRES) {
       await initPostgres();
+      await removeLegacyCabinets();
       return;
     }
 
     initSqlite();
     await seedSqliteIfEmpty();
+    await removeLegacyCabinets();
   })();
 
   return initPromise;
+}
+
+async function removeLegacyCabinets() {
+  if (USE_POSTGRES) {
+    await pgPool.query(
+      'DELETE FROM bookings WHERE resource_id = ANY($1::text[])',
+      [LEGACY_CABINET_IDS]
+    );
+    await pgPool.query(
+      'DELETE FROM resources WHERE id = ANY($1::text[]) OR name = ANY($2::text[])',
+      [LEGACY_CABINET_IDS, LEGACY_CABINET_NAMES]
+    );
+    return;
+  }
+
+  const idPlaceholders = LEGACY_CABINET_IDS.map(() => '?').join(',');
+  const namePlaceholders = LEGACY_CABINET_NAMES.map(() => '?').join(',');
+
+  sqlite.prepare(
+    `DELETE FROM bookings WHERE resource_id IN (${idPlaceholders})`
+  ).run(...LEGACY_CABINET_IDS);
+
+  sqlite.prepare(
+    `DELETE FROM resources WHERE id IN (${idPlaceholders}) OR name IN (${namePlaceholders})`
+  ).run(...LEGACY_CABINET_IDS, ...LEGACY_CABINET_NAMES);
 }
 
 const resourcesDB = {
@@ -718,6 +748,61 @@ const bookingsDB = {
   },
 };
 
+const usersDB = {
+  async getByEmail(email) {
+    await ensureInit();
+    if (USE_POSTGRES) {
+      const result = await pgPool.query('SELECT * FROM users WHERE LOWER(email) = $1', [email.toLowerCase()]);
+      return result.rows[0] || null;
+    }
+    return sqlite.prepare('SELECT * FROM users WHERE LOWER(email) = ?').get(email.toLowerCase()) || null;
+  },
+
+  async verifyPassword(email, password) {
+    const user = await this.getByEmail(email);
+    if (!user || !user.password_hash) return null;
+    const ok = await bcrypt.compare(password, user.password_hash);
+    return ok ? user : null;
+  },
+
+  async setResetToken(email, token, expiresAt) {
+    await ensureInit();
+    if (USE_POSTGRES) {
+      await pgPool.query(
+        'UPDATE users SET reset_token = $1, reset_expires = $2 WHERE LOWER(email) = $3',
+        [token, expiresAt, email.toLowerCase()]
+      );
+      return;
+    }
+    sqlite.prepare('UPDATE users SET reset_token = ?, reset_expires = ? WHERE LOWER(email) = ?')
+      .run(token, expiresAt, email.toLowerCase());
+  },
+
+  async resetPassword(token, newPasswordHash) {
+    await ensureInit();
+    if (USE_POSTGRES) {
+      const result = await pgPool.query(
+        `UPDATE users
+         SET password_hash = $1, reset_token = NULL, reset_expires = NULL
+         WHERE reset_token = $2 AND reset_expires > NOW()
+         RETURNING *`,
+        [newPasswordHash, token]
+      );
+      return result.rows[0] || null;
+    }
+
+    const now = new Date().toISOString();
+    const user = sqlite.prepare(
+      'SELECT * FROM users WHERE reset_token = ? AND reset_expires > ?'
+    ).get(token, now);
+    if (!user) return null;
+    sqlite.prepare(
+      'UPDATE users SET password_hash = ?, reset_token = NULL, reset_expires = NULL WHERE id = ?'
+    ).run(newPasswordHash, user.id);
+    return user;
+  },
+};
+
 const schoolsDB = {
   async getAll() {
     await ensureInit();
@@ -765,6 +850,7 @@ ensureMinimumGradeChargingBays().catch((err) => {
 module.exports = {
   resourcesDB,
   bookingsDB,
+  usersDB,
   schoolsDB,
   ready: ensureInit,
 };

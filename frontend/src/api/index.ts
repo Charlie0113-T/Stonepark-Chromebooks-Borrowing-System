@@ -116,9 +116,17 @@ export interface AuthUser {
   schoolId: string;
 }
 
-export async function loginWithEmail(email: string, name?: string): Promise<{ user: AuthUser; token: string }> {
-  const res = await api.post<{ success: boolean; data: { user: AuthUser; token: string } }>('/api/auth/login', { email, name });
+export async function loginWithEmail(email: string, password: string): Promise<{ user: AuthUser; token: string }> {
+  const res = await api.post<{ success: boolean; data: { user: AuthUser; token: string } }>('/api/auth/login', { email, password });
   return res.data.data;
+}
+
+export async function requestPasswordReset(email: string): Promise<void> {
+  await api.post('/api/auth/forgot-password', { email });
+}
+
+export async function resetPassword(token: string, newPassword: string): Promise<void> {
+  await api.post('/api/auth/reset-password', { token, newPassword });
 }
 
 export async function fetchCurrentUser(): Promise<AuthUser> {
