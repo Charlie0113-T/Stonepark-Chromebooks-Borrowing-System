@@ -24,6 +24,19 @@ const {
 const { usersDB, whitelistDB } = require('../db/database');
 const { sendEmail } = require('../services/notifications');
 
+function getAdminSeedEmails() {
+  const raw = (process.env.ADMIN_USERS || '').trim();
+  if (!raw) return new Set();
+  const emails = raw
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .map((entry) => entry.split(':')[0])
+    .map((email) => (email || '').trim().toLowerCase())
+    .filter(Boolean);
+  return new Set(emails);
+}
+
 // 20 login attempts per 15 minutes per IP
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -73,10 +86,13 @@ module.exports = function createAuthRouter() {
 
     const passwordHash = await bcrypt.hash(password, 10);
     const displayName = name && name.trim() ? name.trim() : email.split('@')[0];
+    const adminSeedEmails = getAdminSeedEmails();
+    const normalizedEmail = email.toLowerCase();
+    const role = adminSeedEmails.has(normalizedEmail) ? 'admin' : 'staff';
     const user = await usersDB.createUser({
       email,
       name: displayName,
-      role: 'staff',
+      role,
       passwordHash,
     });
 
@@ -84,7 +100,7 @@ module.exports = function createAuthRouter() {
       id: user.id,
       email: user.email,
       name: user.name,
-      role: user.role,
+      role: role,
       schoolId: user.school_id || 'school-default',
     });
 
@@ -92,7 +108,7 @@ module.exports = function createAuthRouter() {
       id: user.id,
       email: user.email,
       name: user.name,
-      role: user.role,
+      role,
       schoolId: user.school_id || 'school-default',
     }, token } });
   });
@@ -112,18 +128,27 @@ module.exports = function createAuthRouter() {
       return res.status(401).json({ success: false, message: 'Invalid email or password.' });
     }
 
+    const adminSeedEmails = getAdminSeedEmails();
+    let role = user.role;
+    if (adminSeedEmails.has(user.email.toLowerCase())) {
+      role = 'admin';
+      if (user.role !== 'admin') {
+        await usersDB.setRole(user.email, 'admin');
+      }
+    }
+
     const token = signToken({
       id: user.id,
       email: user.email,
       name: user.name,
-      role: user.role,
+      role,
       schoolId: user.school_id || 'school-default',
     });
     res.json({ success: true, data: { user: {
       id: user.id,
       email: user.email,
       name: user.name,
-      role: user.role,
+      role,
       schoolId: user.school_id || 'school-default',
     }, token } });
   });

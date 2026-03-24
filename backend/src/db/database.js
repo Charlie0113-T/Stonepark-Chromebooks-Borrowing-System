@@ -918,6 +918,21 @@ const usersDB = {
     return sqlite.prepare('SELECT * FROM users WHERE LOWER(email) = ?').get(email.toLowerCase()) || null;
   },
 
+  async setRole(email, role) {
+    await ensureInit();
+    const normalized = (email || '').toLowerCase();
+    if (!normalized) return null;
+    if (USE_POSTGRES) {
+      const result = await pgPool.query(
+        'UPDATE users SET role = $1 WHERE LOWER(email) = $2 RETURNING *',
+        [role, normalized]
+      );
+      return result.rows[0] || null;
+    }
+    sqlite.prepare('UPDATE users SET role = ? WHERE LOWER(email) = ?').run(role, normalized);
+    return this.getByEmail(normalized);
+  },
+
   async verifyPassword(email, password) {
     const user = await this.getByEmail(email);
     if (!user || !user.password_hash) return null;
