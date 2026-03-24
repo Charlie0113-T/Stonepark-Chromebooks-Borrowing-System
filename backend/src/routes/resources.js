@@ -11,6 +11,7 @@ const express = require('express');
 const { randomUUID } = require('node:crypto');
 const { resourcesDB, bookingsDB } = require('../db/database');
 const { enrichResourceDB, getBookedQuantityDB } = require('../models/booking');
+const { requireAuth, requireWhitelisted } = require('../middleware/auth');
 
 const RESOURCE_TYPE = { CABINET: 'cabinet', SINGLE: 'single' };
 
@@ -34,7 +35,7 @@ module.exports = function createResourcesRouter() {
   });
 
   // POST /api/resources
-  router.post('/', async (req, res) => {
+  router.post('/', requireAuth, requireWhitelisted, async (req, res) => {
     const { type, name, classRoom, totalQuantity, description, schoolId } = req.body;
 
     if (!type || !name || !classRoom || totalQuantity == null) {
@@ -64,7 +65,7 @@ module.exports = function createResourcesRouter() {
   });
 
   // PUT /api/resources/:id
-  router.put('/:id', async (req, res) => {
+  router.put('/:id', requireAuth, requireWhitelisted, async (req, res) => {
     const resource = await resourcesDB.getById(req.params.id);
     if (!resource) {
       return res.status(404).json({ success: false, message: 'Resource not found.' });
@@ -99,7 +100,7 @@ module.exports = function createResourcesRouter() {
   });
 
   // DELETE /api/resources/:id
-  router.delete('/:id', async (req, res) => {
+  router.delete('/:id', requireAuth, requireWhitelisted, async (req, res) => {
     const resource = await resourcesDB.getById(req.params.id);
     if (!resource) {
       return res.status(404).json({ success: false, message: 'Resource not found.' });

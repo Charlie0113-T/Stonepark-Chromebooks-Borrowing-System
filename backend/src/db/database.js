@@ -19,6 +19,13 @@ let initPromise = null;
 const LEGACY_CABINET_IDS = ['res-001', 'res-002', 'res-003', 'res-004'];
 const LEGACY_CABINET_NAMES = ['Cabinet A', 'Cabinet B', 'Cabinet C', 'Cabinet D', 'Cabinet D2'];
 
+const DEFAULT_WHITELIST_EMAILS = [
+  'chta0655@cloud.edu.pe.ca',
+  'placeholder-admin-1@cloud.edu.pe.ca',
+  'placeholder-admin-2@cloud.edu.pe.ca',
+  'placeholder-admin-3@cloud.edu.pe.ca',
+];
+
 function parseAdminUsers() {
   const raw = (process.env.ADMIN_USERS || '').trim();
   if (!raw) return [];
@@ -34,6 +41,14 @@ function parseAdminUsers() {
       };
     })
     .filter((u) => u.email && u.password);
+}
+
+function parseWhitelistSeed() {
+  const raw = (process.env.WHITELIST_SEED || '').trim();
+  const list = raw
+    ? raw.split(',').map((v) => v.trim().toLowerCase()).filter(Boolean)
+    : DEFAULT_WHITELIST_EMAILS;
+  return Array.from(new Set(list));
 }
 
 function rowToResource(row) {
@@ -272,6 +287,12 @@ async function initPostgres() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       FOREIGN KEY (school_id) REFERENCES schools(id)
     );
+
+    CREATE TABLE IF NOT EXISTS whitelist_emails (
+      email TEXT PRIMARY KEY,
+      created_by TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
   `);
 
   await pgPool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT');
@@ -378,6 +399,12 @@ function initSqlite() {
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       FOREIGN KEY (school_id) REFERENCES schools(id)
     );
+
+    CREATE TABLE IF NOT EXISTS whitelist_emails (
+      email TEXT PRIMARY KEY,
+      created_by TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 
   ensureSqliteUserColumns();
@@ -454,6 +481,7 @@ async function ensureInit() {
       await initPostgres();
       await removeLegacyCabinets();
       await ensureAdminUsers();
+      await ensureWhitelistSeeds();
       return;
     }
 
@@ -461,6 +489,7 @@ async function ensureInit() {
     await seedSqliteIfEmpty();
     await removeLegacyCabinets();
     await ensureAdminUsers();
+    await ensureWhitelistSeeds();
   })();
 
   return initPromise;
@@ -509,6 +538,47 @@ async function ensureAdminUsers() {
       role: 'admin',
       passwordHash,
     });
+  }
+}
+
+async function ensureWhitelistSeeds() {
+  const seedEmails = parseWhitelistSeed();
+  if (seedEmails.length === 0) return;
+
+  if (USE_POSTGRES) {
+    for (const email of seedEmails) {
+      await pgPool.query(
+        `INSERT INTO whitelist_emails (email, created_by)
+         VALUES ($1, $2)
+         ON CONFLICT (email) DO NOTHING`,
+        [email, 'seed']
+      );
+    }
+
+    const admins = parseAdminUsers().map((a) => a.email);
+    for (const email of admins) {
+      await pgPool.query(
+        `INSERT INTO whitelist_emails (email, created_by)
+         VALUES ($1, $2)
+         ON CONFLICT (email) DO NOTHING`,
+        [email, 'admin-seed']
+      );
+    }
+    return;
+  }
+
+  const insert = sqlite.prepare(
+    `INSERT OR IGNORE INTO whitelist_emails (email, created_by)
+     VALUES (@email, @createdBy)`
+  );
+
+  for (const email of seedEmails) {
+    insert.run({ email, createdBy: 'seed' });
+  }
+
+  const admins = parseAdminUsers().map((a) => a.email);
+  for (const email of admins) {
+    insert.run({ email, createdBy: 'admin-seed' });
   }
 }
 
@@ -921,6 +991,66 @@ const usersDB = {
   },
 };
 
+const whitelistDB = {
+  async getAll() {
+    await ensureInit();
+    if (USE_POSTGRES) {
+      const result = await pgPool.query('SELECT * FROM whitelist_emails ORDER BY email');
+      return result.rows;
+    }
+    return sqlite.prepare('SELECT * FROM whitelist_emails ORDER BY email').all();
+  },
+
+  async isWhitelisted(email) {
+    if (!email) return false;
+    await ensureInit();
+    const normalized = email.toLowerCase();
+    if (USE_POSTGRES) {
+      const result = await pgPool.query('SELECT email FROM whitelist_emails WHERE email = $1', [normalized]);
+      return !!result.rows[0];
+    }
+    const row = sqlite.prepare('SELECT email FROM whitelist_emails WHERE email = ?').get(normalized);
+    return !!row;
+  },
+
+  async add(email, createdBy = 'admin') {
+    await ensureInit();
+    const normalized = (email || '').trim().toLowerCase();
+    if (!normalized) return null;
+
+    if (USE_POSTGRES) {
+      await pgPool.query(
+        `INSERT INTO whitelist_emails (email, created_by)
+         VALUES ($1, $2)
+         ON CONFLICT (email) DO NOTHING`,
+        [normalized, createdBy]
+      );
+      const result = await pgPool.query('SELECT * FROM whitelist_emails WHERE email = $1', [normalized]);
+      return result.rows[0] || null;
+    }
+
+    sqlite.prepare(
+      `INSERT OR IGNORE INTO whitelist_emails (email, created_by)
+       VALUES (?, ?)`
+    ).run(normalized, createdBy);
+    return sqlite.prepare('SELECT * FROM whitelist_emails WHERE email = ?').get(normalized) || null;
+  },
+
+  async remove(email) {
+    await ensureInit();
+    const normalized = (email || '').trim().toLowerCase();
+    if (!normalized) return false;
+
+    if (USE_POSTGRES) {
+      const result = await pgPool.query('DELETE FROM whitelist_emails WHERE email = $1', [normalized]);
+      return result.rowCount > 0;
+    }
+
+    const info = sqlite.prepare('DELETE FROM whitelist_emails WHERE email = ?').run(normalized);
+    return info.changes > 0;
+  },
+};
+
 const schoolsDB = {
   async getAll() {
     await ensureInit();
@@ -969,6 +1099,7 @@ module.exports = {
   resourcesDB,
   bookingsDB,
   usersDB,
+  whitelistDB,
   schoolsDB,
   ready: ensureInit,
 };

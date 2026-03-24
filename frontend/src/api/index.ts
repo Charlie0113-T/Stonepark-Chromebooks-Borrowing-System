@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Booking, CreateBookingPayload, CreateResourcePayload, Resource, Stats } from '../types';
+import { Booking, CreateBookingPayload, CreateResourcePayload, Resource, Stats, WhitelistEntry } from '../types';
 
 function resolveApiBaseUrl() {
   if (process.env.REACT_APP_API_URL) return process.env.REACT_APP_API_URL;
@@ -137,6 +137,20 @@ export async function resetPassword(token: string, newPassword: string): Promise
 export async function fetchCurrentUser(): Promise<AuthUser> {
   const res = await api.get<{ success: boolean; data: AuthUser }>('/api/auth/me');
   return res.data.data;
+}
+
+export async function fetchWhitelist(): Promise<WhitelistEntry[]> {
+  const res = await api.get<{ success: boolean; data: WhitelistEntry[] }>('/api/auth/whitelist');
+  return res.data.data;
+}
+
+export async function addWhitelistEmail(email: string): Promise<WhitelistEntry> {
+  const res = await api.post<{ success: boolean; data: WhitelistEntry }>('/api/auth/whitelist', { email });
+  return res.data.data;
+}
+
+export async function removeWhitelistEmail(email: string): Promise<void> {
+  await api.delete('/api/auth/whitelist', { data: { email } });
 }
 
 export function getGoogleLoginUrl(): string {

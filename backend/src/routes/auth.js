@@ -13,24 +13,16 @@ const express = require('express');
 const rateLimit = require('express-rate-limit');
 const { randomUUID } = require('node:crypto');
 const bcrypt = require('bcryptjs');
-const { signToken, requireAuth, AUTH_BYPASS } = require('../middleware/auth');
-const { usersDB } = require('../db/database');
+const {
+  signToken,
+  requireAuth,
+  requireAdmin,
+  requireWhitelisted,
+  AUTH_BYPASS,
+  isAllowedEmail,
+} = require('../middleware/auth');
+const { usersDB, whitelistDB } = require('../db/database');
 const { sendEmail } = require('../services/notifications');
-
-const DEFAULT_ALLOWED_EMAILS = ['chta0655@cloud.edu.pe.ca', 'dmdunn@cloud.edu.pe.ca'];
-
-function getAllowedEmails() {
-  const raw = (process.env.ALLOWED_EMAILS || '').trim();
-  const list = raw
-    ? raw.split(',').map((v) => v.trim().toLowerCase()).filter(Boolean)
-    : DEFAULT_ALLOWED_EMAILS;
-  return new Set(list);
-}
-
-function isAllowedEmail(email) {
-  if (!email) return false;
-  return getAllowedEmails().has(email.toLowerCase());
-}
 
 // 20 login attempts per 15 minutes per IP
 const authLimiter = rateLimit({
@@ -67,7 +59,7 @@ module.exports = function createAuthRouter() {
     if (!email || !password) {
       return res.status(400).json({ success: false, message: 'email and password are required.' });
     }
-    if (!isAllowedEmail(email)) {
+    if (!(await isAllowedEmail(email))) {
       return res.status(403).json({ success: false, message: 'This email is not on the whitelist.' });
     }
     if (password.length < 8) {
@@ -111,7 +103,7 @@ module.exports = function createAuthRouter() {
     if (!email || !password) {
       return res.status(400).json({ success: false, message: 'email and password are required.' });
     }
-    if (!isAllowedEmail(email)) {
+    if (!(await isAllowedEmail(email))) {
       return res.status(403).json({ success: false, message: 'This email is not on the whitelist.' });
     }
 
@@ -201,7 +193,7 @@ module.exports = function createAuthRouter() {
       // Decode id_token (JWT) – we trust Google's signature here (simplified)
       const idToken = tokenData.id_token;
       const payload = JSON.parse(Buffer.from(idToken.split('.')[1], 'base64url').toString());
-      if (!isAllowedEmail(payload.email)) {
+      if (!(await isAllowedEmail(payload.email))) {
         return res.status(403).json({ success: false, message: 'This email is not on the whitelist.' });
       }
 
@@ -235,7 +227,7 @@ module.exports = function createAuthRouter() {
     if (!email) {
       return res.status(400).json({ success: false, message: 'email is required.' });
     }
-    if (!isAllowedEmail(email)) {
+    if (!(await isAllowedEmail(email))) {
       return res.status(403).json({ success: false, message: 'This email is not on the whitelist.' });
     }
 
@@ -285,7 +277,7 @@ module.exports = function createAuthRouter() {
   });
 
   // GET /api/auth/status – quick check of auth configuration
-  router.get('/status', (req, res) => {
+  router.get('/status', async (req, res) => {
     res.json({
       success: true,
       data: {
@@ -293,9 +285,40 @@ module.exports = function createAuthRouter() {
         googleOAuthConfigured: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
         smtpConfigured: !!process.env.SMTP_HOST,
         googleChatConfigured: !!process.env.GOOGLE_CHAT_WEBHOOK_URL,
-        allowedEmails: Array.from(getAllowedEmails()),
+        whitelistCount: (await whitelistDB.getAll()).length,
       },
     });
+  });
+
+  // ── Whitelist Management (admin only, admin must be whitelisted) ──────────
+
+  router.get('/whitelist', requireAuth, requireAdmin, requireWhitelisted, async (_req, res) => {
+    const entries = await whitelistDB.getAll();
+    res.json({ success: true, data: entries });
+  });
+
+  router.post('/whitelist', requireAuth, requireAdmin, requireWhitelisted, async (req, res) => {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'email is required.' });
+    }
+    const entry = await whitelistDB.add(email, req.user.email);
+    if (!entry) {
+      return res.status(400).json({ success: false, message: 'Invalid email.' });
+    }
+    res.status(201).json({ success: true, data: entry });
+  });
+
+  router.delete('/whitelist', requireAuth, requireAdmin, requireWhitelisted, async (req, res) => {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'email is required.' });
+    }
+    const removed = await whitelistDB.remove(email);
+    if (!removed) {
+      return res.status(404).json({ success: false, message: 'Email not found in whitelist.' });
+    }
+    res.json({ success: true, message: 'Whitelist entry removed.' });
   });
 
   return router;

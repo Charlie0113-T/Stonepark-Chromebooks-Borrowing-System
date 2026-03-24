@@ -31,6 +31,12 @@ const DEFAULT_DEV_USER = {
   schoolId: 'school-default',
 };
 
+const { whitelistDB } = require('../db/database');
+
+async function isAllowedEmail(email) {
+  return whitelistDB.isWhitelisted(email);
+}
+
 /**
  * Signs a JWT for the given user payload.
  */
@@ -89,4 +95,25 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-module.exports = { requireAuth, requireAdmin, signToken, verifyToken, AUTH_BYPASS, DEFAULT_DEV_USER };
+/**
+ * Express middleware: requires the authenticated user to be on the email whitelist.
+ * Must be used after requireAuth.
+ */
+async function requireWhitelisted(req, res, next) {
+  if (AUTH_BYPASS) return next();
+  if (!req.user || !(await isAllowedEmail(req.user.email))) {
+    return res.status(403).json({ success: false, message: 'This account is not on the whitelist.' });
+  }
+  next();
+}
+
+module.exports = {
+  requireAuth,
+  requireAdmin,
+  requireWhitelisted,
+  signToken,
+  verifyToken,
+  isAllowedEmail,
+  AUTH_BYPASS,
+  DEFAULT_DEV_USER,
+};

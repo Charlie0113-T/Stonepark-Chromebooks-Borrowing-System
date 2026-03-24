@@ -72,3 +72,9 @@ export interface CreateResourcePayload {
   description?: string;
   schoolId?: string;
 }
+
+export interface WhitelistEntry {
+  email: string;
+  created_by?: string | null;
+  created_at?: string | null;
+}

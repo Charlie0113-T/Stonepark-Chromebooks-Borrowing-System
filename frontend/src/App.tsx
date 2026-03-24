@@ -1,6 +1,17 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import './App.css';
-import { API_BASE_URL, fetchResources, fetchSchools, fetchStats, School } from './api';
+import {
+  API_BASE_URL,
+  addWhitelistEmail,
+  AuthUser,
+  fetchCurrentUser,
+  fetchResources,
+  fetchSchools,
+  fetchStats,
+  fetchWhitelist,
+  removeWhitelistEmail,
+  School,
+} from './api';
 import AddResourceForm from './components/AddResourceForm';
 import AllBookings from './components/AllBookings';
 import BookingForm from './components/BookingForm';
@@ -12,7 +23,7 @@ import QRCodeGallery from './components/QRCodeGallery';
 import ResourceCard from './components/ResourceCard';
 import StatsView from './components/StatsView';
 import { StatusDot } from './components/StatusBadge';
-import { Resource, Stats } from './types';
+import { Resource, Stats, WhitelistEntry } from './types';
 
 type Tab = 'dashboard' | 'bookings' | 'calendar' | 'stats' | 'qr';
 
@@ -30,16 +41,24 @@ function App() {
   const [tab, setTab] = useState<Tab>('dashboard');
 
   // Auth state
-  const [authUser, setAuthUser] = useState<string | null>(() => {
+  const [authUser, setAuthUser] = useState<AuthUser | null>(() => {
     try {
       const u = localStorage.getItem('auth_user');
-      return u ? JSON.parse(u).name : null;
+      return u ? (JSON.parse(u) as AuthUser) : null;
     } catch {
       return null;
     }
   });
   const [showLogin, setShowLogin] = useState(false);
   const bypassAuth = !envTrue(process.env.REACT_APP_REQUIRE_AUTH);
+
+  const [showWhitelist, setShowWhitelist] = useState(false);
+  const [whitelistEntries, setWhitelistEntries] = useState<WhitelistEntry[]>([]);
+  const [whitelistLoading, setWhitelistLoading] = useState(false);
+  const [whitelistError, setWhitelistError] = useState<string | null>(null);
+  const [whitelistEmail, setWhitelistEmail] = useState('');
+  const [whitelistPage, setWhitelistPage] = useState(1);
+  const whitelistPageSize = 8;
 
   // Modal states
   const [bookingResource, setBookingResource] = useState<Resource | null>(null);
@@ -90,6 +109,17 @@ function App() {
     }
   }, []);
 
+  useEffect(() => {
+    const token = localStorage.getItem('auth_token');
+    if (!token) return;
+    fetchCurrentUser()
+      .then((user) => {
+        localStorage.setItem('auth_user', JSON.stringify(user));
+        setAuthUser(user);
+      })
+      .catch(() => {});
+  }, []);
+
   const handleBookSuccess = async () => {
     setBookingResource(null);
     setSuccessMsg('Booking created successfully!');
@@ -110,10 +140,65 @@ function App() {
     setAuthUser(null);
   };
 
-  const handleLogin = (_token: string, name: string) => {
-    setAuthUser(name);
+  const handleLogin = (_token: string, user: AuthUser) => {
+    setAuthUser(user);
     setShowLogin(false);
   };
+
+  const loadWhitelist = useCallback(async () => {
+    setWhitelistLoading(true);
+    setWhitelistError(null);
+    try {
+      const entries = await fetchWhitelist();
+      setWhitelistEntries(entries);
+      setWhitelistPage(1);
+    } catch {
+      setWhitelistError('Failed to load whitelist.');
+    } finally {
+      setWhitelistLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (showWhitelist) {
+      loadWhitelist();
+    }
+  }, [showWhitelist, loadWhitelist]);
+
+  const handleAddWhitelist = async () => {
+    const email = whitelistEmail.trim().toLowerCase();
+    if (!email) return;
+    setWhitelistLoading(true);
+    setWhitelistError(null);
+    try {
+      await addWhitelistEmail(email);
+      setWhitelistEmail('');
+      await loadWhitelist();
+    } catch {
+      setWhitelistError('Failed to add whitelist email.');
+    } finally {
+      setWhitelistLoading(false);
+    }
+  };
+
+  const handleRemoveWhitelist = async (email: string) => {
+    if (!authUser) return;
+    if (email.toLowerCase() === authUser.email.toLowerCase()) return;
+    setWhitelistLoading(true);
+    setWhitelistError(null);
+    try {
+      await removeWhitelistEmail(email);
+      await loadWhitelist();
+    } catch {
+      setWhitelistError('Failed to remove whitelist email.');
+    } finally {
+      setWhitelistLoading(false);
+    }
+  };
+
+  const whitelistTotalPages = Math.max(1, Math.ceil(whitelistEntries.length / whitelistPageSize));
+  const whitelistPageStart = (whitelistPage - 1) * whitelistPageSize;
+  const whitelistPageEntries = whitelistEntries.slice(whitelistPageStart, whitelistPageStart + whitelistPageSize);
 
   const filteredResources = resources.filter((r) => {
     if (filter !== 'all' && r.type !== filter) return false;
@@ -192,7 +277,15 @@ function App() {
             {/* Auth */}
             {authUser ? (
               <div className="flex items-center gap-2 text-xs text-gray-300">
-                <span>👤 {authUser}</span>
+                <span>👤 {authUser.name}</span>
+                {authUser.role === 'admin' && (
+                  <button
+                    onClick={() => setShowWhitelist(true)}
+                    className="px-2 py-1 rounded border border-gray-400 text-gray-200 hover:bg-gray-600 text-xs"
+                  >
+                    Whitelist
+                  </button>
+                )}
                 <button
                   onClick={handleLogout}
                   className="px-2 py-1 rounded border border-gray-400 text-gray-300 hover:bg-gray-600 text-xs"
@@ -430,9 +523,103 @@ function App() {
           />
         </Modal>
       )}
+
+      {showWhitelist && authUser?.role === 'admin' && (
+        <Modal title="Manage Whitelist" onClose={() => setShowWhitelist(false)}>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Add email</label>
+              <div className="flex gap-2">
+                <input
+                  type="email"
+                  value={whitelistEmail}
+                  onChange={(e) => setWhitelistEmail(e.target.value)}
+                  placeholder="name@cloud.edu.pe.ca"
+                  className="flex-1 border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+                  style={{ borderColor: '#ccc' }}
+                />
+                <button
+                  onClick={handleAddWhitelist}
+                  disabled={whitelistLoading}
+                  className="px-3 py-2 rounded text-sm font-medium"
+                  style={{ backgroundColor: '#333333', color: '#fff', opacity: whitelistLoading ? 0.7 : 1 }}
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+
+            {whitelistError && (
+              <div className="px-3 py-2 rounded text-sm" style={{ backgroundColor: '#f8d7da', color: '#dc3545' }}>
+                {whitelistError}
+              </div>
+            )}
+
+            <div>
+              <div className="text-sm font-semibold text-gray-700 mb-2">Whitelist</div>
+              {whitelistLoading ? (
+                <div className="text-sm text-gray-500">Loading...</div>
+              ) : whitelistEntries.length === 0 ? (
+                <div className="text-sm text-gray-500">No whitelist entries.</div>
+              ) : (
+                <div className="divide-y border rounded" style={{ borderColor: '#e5e7eb' }}>
+                  {whitelistPageEntries.map((entry) => {
+                    const isSelf = authUser.email.toLowerCase() === entry.email.toLowerCase();
+                    return (
+                      <div key={entry.email} className="flex items-center justify-between px-3 py-2">
+                        <div>
+                          <div className="text-sm text-gray-900">{entry.email}</div>
+                          <div className="text-xs text-gray-400">
+                            {entry.created_by ? `Added by ${entry.created_by}` : 'Seeded'}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleRemoveWhitelist(entry.email)}
+                          disabled={isSelf || whitelistLoading}
+                          className="px-2 py-1 rounded border text-xs"
+                          style={{
+                            borderColor: '#333333',
+                            color: isSelf ? '#999999' : '#333333',
+                            opacity: whitelistLoading ? 0.6 : 1,
+                          }}
+                          title={isSelf ? 'You cannot remove yourself.' : 'Remove'}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              {whitelistEntries.length > 0 && (
+                <div className="flex items-center justify-between mt-3 text-xs text-gray-600">
+                  <button
+                    onClick={() => setWhitelistPage((p) => Math.max(1, p - 1))}
+                    disabled={whitelistPage <= 1}
+                    className="px-2 py-1 rounded border"
+                    style={{ borderColor: '#333333', opacity: whitelistPage <= 1 ? 0.5 : 1 }}
+                  >
+                    Prev
+                  </button>
+                  <span>
+                    Page {whitelistPage} of {whitelistTotalPages}
+                  </span>
+                  <button
+                    onClick={() => setWhitelistPage((p) => Math.min(whitelistTotalPages, p + 1))}
+                    disabled={whitelistPage >= whitelistTotalPages}
+                    className="px-2 py-1 rounded border"
+                    style={{ borderColor: '#333333', opacity: whitelistPage >= whitelistTotalPages ? 0.5 : 1 }}
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
-
 
 export default App;

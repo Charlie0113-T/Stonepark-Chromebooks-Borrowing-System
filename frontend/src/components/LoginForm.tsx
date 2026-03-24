@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { getGoogleLoginUrl, loginWithEmail, requestPasswordReset, resetPassword, signupWithEmail } from '../api';
+import { AuthUser, getGoogleLoginUrl, loginWithEmail, requestPasswordReset, resetPassword, signupWithEmail } from '../api';
 
 interface Props {
-  onLogin: (token: string, name: string) => void;
+  onLogin: (token: string, user: AuthUser) => void;
 }
 
 export default function LoginForm({ onLogin }: Props) {
@@ -28,7 +28,7 @@ export default function LoginForm({ onLogin }: Props) {
       const { user, token } = await loginWithEmail(email, password);
       localStorage.setItem('auth_token', token);
       localStorage.setItem('auth_user', JSON.stringify(user));
-      onLogin(token, user.name);
+      onLogin(token, user);
     } catch {
       setError('Login failed. Please check your email and password.');
     } finally {
@@ -104,7 +104,7 @@ export default function LoginForm({ onLogin }: Props) {
       const { user, token } = await signupWithEmail(signupEmail, signupPassword, signupName || undefined);
       localStorage.setItem('auth_token', token);
       localStorage.setItem('auth_user', JSON.stringify(user));
-      onLogin(token, user.name);
+      onLogin(token, user);
     } catch (err: any) {
       const msg = err?.response?.data?.message || 'Sign up failed. Please try again.';
       setError(msg);

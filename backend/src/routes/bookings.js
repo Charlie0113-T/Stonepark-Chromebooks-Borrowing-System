@@ -16,6 +16,7 @@ const { resourcesDB, bookingsDB, usersDB } = require('../db/database');
 const bcrypt = require('bcryptjs');
 const { checkConflictDB, isBookingOverdue } = require('../models/booking');
 const { notifyBookingCreated, notifyBookingReturned } = require('../services/notifications');
+const { requireAuth, requireWhitelisted, isAllowedEmail } = require('../middleware/auth');
 
 module.exports = function createBookingsRouter() {
   const router = express.Router();
@@ -129,6 +130,9 @@ module.exports = function createBookingsRouter() {
     if (!email || !password) {
       return res.status(400).send('<h2>Email and password are required.</h2>');
     }
+    if (!(await isAllowedEmail(email))) {
+      return res.status(403).send('<h2>This email is not on the whitelist.</h2>');
+    }
 
     const user = await usersDB.getByEmail(email);
     if (!user || user.role !== 'admin' || !user.password_hash) {
@@ -157,7 +161,7 @@ module.exports = function createBookingsRouter() {
   });
 
   // POST /api/bookings - create new booking
-  router.post('/', async (req, res) => {
+  router.post('/', requireAuth, requireWhitelisted, async (req, res) => {
     const { resourceId, borrower, borrowerClass, quantity, startTime, endTime, notes } = req.body;
 
     // Validate required fields
@@ -210,7 +214,7 @@ module.exports = function createBookingsRouter() {
   });
 
   // PATCH /api/bookings/:id/return
-  router.patch('/:id/return', async (req, res) => {
+  router.patch('/:id/return', requireAuth, requireWhitelisted, async (req, res) => {
     const booking = await bookingsDB.getById(req.params.id);
     if (!booking) {
       return res.status(404).json({ success: false, message: 'Booking not found.' });
@@ -231,7 +235,7 @@ module.exports = function createBookingsRouter() {
   });
 
   // PATCH /api/bookings/:id/cancel
-  router.patch('/:id/cancel', async (req, res) => {
+  router.patch('/:id/cancel', requireAuth, requireWhitelisted, async (req, res) => {
     const booking = await bookingsDB.getById(req.params.id);
     if (!booking) {
       return res.status(404).json({ success: false, message: 'Booking not found.' });
