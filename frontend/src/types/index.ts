@@ -77,4 +77,14 @@ export interface WhitelistEntry {
   email: string;
   created_by?: string | null;
   created_at?: string | null;
+  is_admin?: boolean;
+}
+
+export interface RemovalRequest {
+  email: string;
+  created_by: string;
+  created_at?: string | null;
+  votes: number;
+  required: number;
+  has_voted: boolean;
 }

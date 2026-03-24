@@ -9,8 +9,11 @@ import {
   fetchSchools,
   fetchStats,
   fetchWhitelist,
+  fetchWhitelistRemovalRequests,
   removeWhitelistEmail,
+  requestAdminRemoval,
   School,
+  voteAdminRemoval,
 } from './api';
 import AddResourceForm from './components/AddResourceForm';
 import AllBookings from './components/AllBookings';
@@ -23,7 +26,7 @@ import QRCodeGallery from './components/QRCodeGallery';
 import ResourceCard from './components/ResourceCard';
 import StatsView from './components/StatsView';
 import { StatusDot } from './components/StatusBadge';
-import { Resource, Stats, WhitelistEntry } from './types';
+import { RemovalRequest, Resource, Stats, WhitelistEntry } from './types';
 
 type Tab = 'dashboard' | 'bookings' | 'calendar' | 'stats' | 'qr';
 
@@ -54,6 +57,7 @@ function App() {
 
   const [showWhitelist, setShowWhitelist] = useState(false);
   const [whitelistEntries, setWhitelistEntries] = useState<WhitelistEntry[]>([]);
+  const [removalRequests, setRemovalRequests] = useState<RemovalRequest[]>([]);
   const [whitelistLoading, setWhitelistLoading] = useState(false);
   const [whitelistError, setWhitelistError] = useState<string | null>(null);
   const [whitelistEmail, setWhitelistEmail] = useState('');
@@ -149,8 +153,12 @@ function App() {
     setWhitelistLoading(true);
     setWhitelistError(null);
     try {
-      const entries = await fetchWhitelist();
+      const [entries, requests] = await Promise.all([
+        fetchWhitelist(),
+        fetchWhitelistRemovalRequests(),
+      ]);
       setWhitelistEntries(entries);
+      setRemovalRequests(requests);
       setWhitelistPage(1);
     } catch {
       setWhitelistError('Failed to load whitelist.');
@@ -181,16 +189,35 @@ function App() {
     }
   };
 
-  const handleRemoveWhitelist = async (email: string) => {
+  const handleRemoveWhitelist = async (entry: WhitelistEntry) => {
     if (!authUser) return;
-    if (email.toLowerCase() === authUser.email.toLowerCase()) return;
+    if (entry.email.toLowerCase() === authUser.email.toLowerCase()) return;
     setWhitelistLoading(true);
     setWhitelistError(null);
     try {
-      await removeWhitelistEmail(email);
+      if (entry.is_admin) {
+        await requestAdminRemoval(entry.email);
+      } else {
+        await removeWhitelistEmail(entry.email);
+      }
       await loadWhitelist();
-    } catch {
-      setWhitelistError('Failed to remove whitelist email.');
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || 'Failed to update whitelist.';
+      setWhitelistError(msg);
+    } finally {
+      setWhitelistLoading(false);
+    }
+  };
+
+  const handleVoteRemoval = async (email: string) => {
+    setWhitelistLoading(true);
+    setWhitelistError(null);
+    try {
+      await voteAdminRemoval(email);
+      await loadWhitelist();
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || 'Failed to vote on removal.';
+      setWhitelistError(msg);
     } finally {
       setWhitelistLoading(false);
     }
@@ -568,13 +595,20 @@ function App() {
                     return (
                       <div key={entry.email} className="flex items-center justify-between px-3 py-2">
                         <div>
-                          <div className="text-sm text-gray-900">{entry.email}</div>
+                          <div className="text-sm text-gray-900 flex items-center gap-2">
+                            <span>{entry.email}</span>
+                            {entry.is_admin && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded border" style={{ borderColor: '#333333', color: '#333333' }}>
+                                Admin
+                              </span>
+                            )}
+                          </div>
                           <div className="text-xs text-gray-400">
                             {entry.created_by ? `Added by ${entry.created_by}` : 'Seeded'}
                           </div>
                         </div>
                         <button
-                          onClick={() => handleRemoveWhitelist(entry.email)}
+                          onClick={() => handleRemoveWhitelist(entry)}
                           disabled={isSelf || whitelistLoading}
                           className="px-2 py-1 rounded border text-xs"
                           style={{
@@ -584,7 +618,7 @@ function App() {
                           }}
                           title={isSelf ? 'You cannot remove yourself.' : 'Remove'}
                         >
-                          Remove
+                          {entry.is_admin ? 'Request removal' : 'Remove'}
                         </button>
                       </div>
                     );
@@ -612,6 +646,45 @@ function App() {
                   >
                     Next
                   </button>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <div className="text-sm font-semibold text-gray-700 mb-2">Pending admin removals</div>
+              {removalRequests.length === 0 ? (
+                <div className="text-sm text-gray-500">No pending admin removals.</div>
+              ) : (
+                <div className="divide-y border rounded" style={{ borderColor: '#e5e7eb' }}>
+                  {removalRequests.map((request) => {
+                    const canVote = !request.has_voted && request.required > 0;
+                    return (
+                      <div key={request.email} className="flex items-center justify-between px-3 py-2">
+                        <div>
+                          <div className="text-sm text-gray-900">{request.email}</div>
+                          <div className="text-xs text-gray-400">
+                            Requested by {request.created_by}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            Votes: {request.votes}/{request.required}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleVoteRemoval(request.email)}
+                          disabled={!canVote || whitelistLoading}
+                          className="px-2 py-1 rounded border text-xs"
+                          style={{
+                            borderColor: '#333333',
+                            color: canVote ? '#333333' : '#999999',
+                            opacity: whitelistLoading ? 0.6 : 1,
+                          }}
+                          title={canVote ? 'Vote to approve removal' : 'Already voted or not eligible'}
+                        >
+                          {request.has_voted ? 'Voted' : 'Vote approve'}
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>

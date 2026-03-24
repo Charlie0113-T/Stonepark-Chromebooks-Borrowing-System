@@ -21,7 +21,7 @@ const {
   AUTH_BYPASS,
   isAllowedEmail,
 } = require('../middleware/auth');
-const { usersDB, whitelistDB } = require('../db/database');
+const { usersDB, whitelistDB, whitelistRemovalDB } = require('../db/database');
 const { sendEmail } = require('../services/notifications');
 
 function getAdminSeedEmails() {
@@ -35,6 +35,17 @@ function getAdminSeedEmails() {
     .map((email) => (email || '').trim().toLowerCase())
     .filter(Boolean);
   return new Set(emails);
+}
+
+async function getWhitelistedAdmins() {
+  const admins = await usersDB.getAdmins();
+  const results = [];
+  for (const admin of admins) {
+    if (await whitelistDB.isWhitelisted(admin.email)) {
+      results.push(admin);
+    }
+  }
+  return results;
 }
 
 // 20 login attempts per 15 minutes per IP
@@ -222,15 +233,29 @@ module.exports = function createAuthRouter() {
         return res.status(403).json({ success: false, message: 'This email is not on the whitelist.' });
       }
 
-      const user = {
-        id: `google-${payload.sub}`,
-        email: payload.email,
+      const adminSeedEmails = getAdminSeedEmails();
+      const normalizedEmail = payload.email.toLowerCase();
+      let role = adminSeedEmails.has(normalizedEmail) ? 'admin' : 'staff';
+      const existing = await usersDB.getByEmail(normalizedEmail);
+      if (existing?.role === 'admin') {
+        role = 'admin';
+      }
+
+      const storedUser = await usersDB.upsertGoogleUser({
+        email: normalizedEmail,
         name: payload.name,
-        role: 'staff',
-        schoolId: 'school-default',
         googleId: payload.sub,
-      };
-      const token = signToken(user);
+        role,
+        schoolId: 'school-default',
+      });
+
+      const token = signToken({
+        id: storedUser?.id || `google-${payload.sub}`,
+        email: normalizedEmail,
+        name: storedUser?.name || payload.name,
+        role,
+        schoolId: storedUser?.school_id || 'school-default',
+      });
 
       // Redirect to frontend with token
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
@@ -318,8 +343,13 @@ module.exports = function createAuthRouter() {
   // ── Whitelist Management (admin only, admin must be whitelisted) ──────────
 
   router.get('/whitelist', requireAuth, requireAdmin, requireWhitelisted, async (_req, res) => {
-    const entries = await whitelistDB.getAll();
-    res.json({ success: true, data: entries });
+    const [entries, admins] = await Promise.all([whitelistDB.getAll(), usersDB.getAdmins()]);
+    const adminSet = new Set(admins.map((a) => (a.email || '').toLowerCase()));
+    const enriched = entries.map((entry) => ({
+      ...entry,
+      is_admin: adminSet.has((entry.email || '').toLowerCase()),
+    }));
+    res.json({ success: true, data: enriched });
   });
 
   router.post('/whitelist', requireAuth, requireAdmin, requireWhitelisted, async (req, res) => {
@@ -339,11 +369,124 @@ module.exports = function createAuthRouter() {
     if (!email) {
       return res.status(400).json({ success: false, message: 'email is required.' });
     }
+    const normalized = email.toLowerCase();
+    if (req.user.email.toLowerCase() === normalized) {
+      return res.status(400).json({ success: false, message: 'You cannot remove yourself.' });
+    }
+    const adminList = await getWhitelistedAdmins();
+    const isAdminTarget = adminList.some((admin) => admin.email.toLowerCase() === normalized);
+    if (isAdminTarget) {
+      return res.status(409).json({ success: false, message: 'Admin removal requires consensus voting.' });
+    }
     const removed = await whitelistDB.remove(email);
     if (!removed) {
       return res.status(404).json({ success: false, message: 'Email not found in whitelist.' });
     }
     res.json({ success: true, message: 'Whitelist entry removed.' });
+  });
+
+  // ── Whitelist Admin Removal Votes ───────────────────────────────────────
+
+  router.get('/whitelist/removals', requireAuth, requireAdmin, requireWhitelisted, async (req, res) => {
+    const requests = await whitelistRemovalDB.getAll();
+    const adminList = await getWhitelistedAdmins();
+    const adminEmails = adminList.map((admin) => admin.email.toLowerCase());
+
+    const data = [];
+    for (const request of requests) {
+      const target = (request.email || '').toLowerCase();
+      const createdBy = (request.created_by || '').toLowerCase();
+      const eligibleVoters = adminEmails.filter((email) => email !== createdBy && email !== target);
+      const required = eligibleVoters.length;
+      const votes = await whitelistRemovalDB.countVotes(target);
+      const hasVoted = await whitelistRemovalDB.hasVoted(target, req.user.email);
+      data.push({
+        email: request.email,
+        created_by: request.created_by,
+        created_at: request.created_at,
+        votes,
+        required,
+        has_voted: hasVoted,
+      });
+    }
+
+    res.json({ success: true, data });
+  });
+
+  router.post('/whitelist/removals', requireAuth, requireAdmin, requireWhitelisted, async (req, res) => {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'email is required.' });
+    }
+    const normalized = email.toLowerCase();
+    if (req.user.email.toLowerCase() === normalized) {
+      return res.status(400).json({ success: false, message: 'You cannot remove yourself.' });
+    }
+
+    const adminList = await getWhitelistedAdmins();
+    const adminEmails = adminList.map((admin) => admin.email.toLowerCase());
+    if (!adminEmails.includes(normalized)) {
+      return res.status(400).json({ success: false, message: 'Only admin removal requires voting.' });
+    }
+
+    const eligibleVoters = adminEmails.filter((adminEmail) => adminEmail !== req.user.email.toLowerCase() && adminEmail !== normalized);
+    if (eligibleVoters.length === 0) {
+      return res.status(400).json({ success: false, message: 'Cannot remove the only admin.' });
+    }
+
+    const request = await whitelistRemovalDB.createRequest(normalized, req.user.email);
+    const votes = await whitelistRemovalDB.countVotes(normalized);
+
+    res.status(202).json({
+      success: true,
+      data: {
+        email: request.email,
+        created_by: request.created_by,
+        created_at: request.created_at,
+        votes,
+        required: eligibleVoters.length,
+      },
+    });
+  });
+
+  router.post('/whitelist/removals/:email/vote', requireAuth, requireAdmin, requireWhitelisted, async (req, res) => {
+    const targetEmail = (req.params.email || '').toLowerCase();
+    if (!targetEmail) {
+      return res.status(400).json({ success: false, message: 'email is required.' });
+    }
+
+    const request = await whitelistRemovalDB.getByEmail(targetEmail);
+    if (!request) {
+      return res.status(404).json({ success: false, message: 'Removal request not found.' });
+    }
+
+    const adminList = await getWhitelistedAdmins();
+    const adminEmails = adminList.map((admin) => admin.email.toLowerCase());
+    if (!adminEmails.includes(req.user.email.toLowerCase())) {
+      return res.status(403).json({ success: false, message: 'Only whitelisted admins can vote.' });
+    }
+
+    if (req.user.email.toLowerCase() === request.created_by.toLowerCase()) {
+      return res.status(400).json({ success: false, message: 'Requester cannot vote.' });
+    }
+
+    if (req.user.email.toLowerCase() === targetEmail) {
+      return res.status(400).json({ success: false, message: 'Target cannot vote.' });
+    }
+
+    await whitelistRemovalDB.addVote(targetEmail, req.user.email);
+
+    const eligibleVoters = adminEmails.filter((adminEmail) => adminEmail !== request.created_by.toLowerCase() && adminEmail !== targetEmail);
+    const required = eligibleVoters.length;
+    const votes = await whitelistRemovalDB.countVotes(targetEmail);
+
+    if (votes >= required && required > 0) {
+      await whitelistDB.remove(targetEmail);
+      await whitelistRemovalDB.clearRequest(targetEmail);
+      return res.json({ success: true, data: { status: 'removed', email: targetEmail } });
+    }
+
+    res.json({ success: true, data: { status: 'pending', email: targetEmail, votes, required } });
   });
 
   return router;

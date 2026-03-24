@@ -1040,6 +1040,50 @@ const usersDB = {
     return this.getByEmail(email);
   },
 
+  async upsertGoogleUser({ email, name, googleId, role, schoolId = 'school-default' }) {
+    await ensureInit();
+    const normalized = (email || '').toLowerCase();
+    if (!normalized || !googleId) return null;
+    const displayName = name || normalized.split('@')[0];
+    const id = `google-${googleId}`;
+
+    if (USE_POSTGRES) {
+      await pgPool.query(
+        `INSERT INTO users (id, school_id, email, name, role, google_id)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         ON CONFLICT (email) DO UPDATE SET
+           name = EXCLUDED.name,
+           google_id = EXCLUDED.google_id,
+           role = CASE
+             WHEN users.role = 'admin' THEN users.role
+             ELSE EXCLUDED.role
+           END`,
+        [id, schoolId, normalized, displayName, role, googleId]
+      );
+      return this.getByEmail(normalized);
+    }
+
+    sqlite.prepare(
+      `INSERT INTO users (id, school_id, email, name, role, google_id)
+       VALUES (@id, @schoolId, @email, @name, @role, @googleId)
+       ON CONFLICT(email) DO UPDATE SET
+         name = excluded.name,
+         google_id = excluded.google_id,
+         role = CASE
+           WHEN users.role = 'admin' THEN users.role
+           ELSE excluded.role
+         END`
+    ).run({
+      id,
+      schoolId,
+      email: normalized,
+      name: displayName,
+      role,
+      googleId,
+    });
+    return this.getByEmail(normalized);
+  },
+
   async getAdmins() {
     await ensureInit();
     if (USE_POSTGRES) {

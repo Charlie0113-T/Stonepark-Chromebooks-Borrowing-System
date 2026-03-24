@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Booking, CreateBookingPayload, CreateResourcePayload, Resource, Stats, WhitelistEntry } from '../types';
+import { Booking, CreateBookingPayload, CreateResourcePayload, RemovalRequest, Resource, Stats, WhitelistEntry } from '../types';
 
 function resolveApiBaseUrl() {
   if (process.env.REACT_APP_API_URL) return process.env.REACT_APP_API_URL;
@@ -144,6 +144,11 @@ export async function fetchWhitelist(): Promise<WhitelistEntry[]> {
   return res.data.data;
 }
 
+export async function fetchWhitelistRemovalRequests(): Promise<RemovalRequest[]> {
+  const res = await api.get<{ success: boolean; data: RemovalRequest[] }>('/api/auth/whitelist/removals');
+  return res.data.data;
+}
+
 export async function addWhitelistEmail(email: string): Promise<WhitelistEntry> {
   const res = await api.post<{ success: boolean; data: WhitelistEntry }>('/api/auth/whitelist', { email });
   return res.data.data;
@@ -151,6 +156,18 @@ export async function addWhitelistEmail(email: string): Promise<WhitelistEntry> 
 
 export async function removeWhitelistEmail(email: string): Promise<void> {
   await api.delete('/api/auth/whitelist', { data: { email } });
+}
+
+export async function requestAdminRemoval(email: string): Promise<RemovalRequest> {
+  const res = await api.post<{ success: boolean; data: RemovalRequest }>('/api/auth/whitelist/removals', { email });
+  return res.data.data;
+}
+
+export async function voteAdminRemoval(email: string): Promise<{ status: 'pending' | 'removed'; votes?: number; required?: number; email: string }> {
+  const res = await api.post<{ success: boolean; data: { status: 'pending' | 'removed'; votes?: number; required?: number; email: string } }>(
+    `/api/auth/whitelist/removals/${encodeURIComponent(email)}/vote`
+  );
+  return res.data.data;
 }
 
 export function getGoogleLoginUrl(): string {
