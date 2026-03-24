@@ -176,6 +176,30 @@ The frontend stores it in `localStorage` and sends it as `Authorization: Bearer 
 3. Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_CALLBACK_URL` in `.env`.
 4. Users click **Sign in with Google** → redirected to Google → token returned in URL.
 
+### Admin & Whitelist (Recommended)
+
+- Recommendation: Prefer Google OAuth for all seeded teachers/admins — this avoids sharing or managing passwords. If a teacher/admin has a Google Workspace account that matches a whitelisted email, they will be recognized on first Google sign-in and (if listed in `ADMIN_USERS`) granted admin role.
+- Ensure the following environment variables on your deployment (Render or other host):
+
+```
+WHITELIST_SEED=comma,separated,list@school.edu
+ADMIN_USERS=admin1@school.edu:TempP@ssw0rd,admin2@school.edu:TempP@ss!
+```
+
+- Best practice:
+  - Add all teacher emails to `WHITELIST_SEED` (or insert them directly into the DB).
+  - Add admin emails to `ADMIN_USERS` (email:password pairs). For security you can set placeholder/temporary passwords and require a change, or rely on Google OAuth and omit passwords in production.
+  - After changing env vars on your host (Render), redeploy/restart the backend so seeds and auth config apply.
+
+- Quick DB fallback (if you need to set admin directly):
+
+```bash
+# mark an existing user as admin (SQLite)
+sqlite3 backend/data/chromebook.db "UPDATE users SET role='admin' WHERE email='sjvos@cloud.edu.pe.ca';"
+```
+
+Use the Google OAuth path whenever possible — it's simpler for users and reduces password support overhead.
+
 ---
 
 ## 📧 Notifications
