@@ -21,6 +21,15 @@ const LEGACY_CABINET_NAMES = ['Cabinet A', 'Cabinet B', 'Cabinet C', 'Cabinet D'
 
 const DEFAULT_WHITELIST_EMAILS = [
   'chta0655@cloud.edu.pe.ca',
+  'wxpoirier@cloud.edu.pe.ca',
+  'hjhennessey@cloud.edu.pe.ca',
+  'tamisener@cloud.edu.pe.ca',
+  'dmdunn@cloud.edu.pe.ca',
+  'cmorrison@cloud.edu.pe.ca',
+  'sdmacswain@cloud.edu.pe.ca',
+  'mpcarver@cloud.edu.pe.ca',
+  'zcgallison@cloud.edu.pe.ca',
+  'sjvos@cloud.edu.pe.ca',
   'placeholder-admin-1@cloud.edu.pe.ca',
   'placeholder-admin-2@cloud.edu.pe.ca',
   'placeholder-admin-3@cloud.edu.pe.ca',
@@ -46,7 +55,7 @@ function parseAdminUsers() {
 function parseWhitelistSeed() {
   const raw = (process.env.WHITELIST_SEED || '').trim();
   const list = raw
-    ? raw.split(',').map((v) => v.trim().toLowerCase()).filter(Boolean)
+    ? raw.split(/[,\s]+/).map((v) => v.trim().toLowerCase()).filter(Boolean)
     : DEFAULT_WHITELIST_EMAILS;
   return Array.from(new Set(list));
 }
@@ -293,6 +302,19 @@ async function initPostgres() {
       created_by TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+
+    CREATE TABLE IF NOT EXISTS whitelist_removal_requests (
+      email TEXT PRIMARY KEY,
+      created_by TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS whitelist_removal_votes (
+      email TEXT NOT NULL,
+      voter_email TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (email, voter_email)
+    );
   `);
 
   await pgPool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT');
@@ -404,6 +426,19 @@ function initSqlite() {
       email TEXT PRIMARY KEY,
       created_by TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS whitelist_removal_requests (
+      email TEXT PRIMARY KEY,
+      created_by TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS whitelist_removal_votes (
+      email TEXT NOT NULL,
+      voter_email TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (email, voter_email)
     );
   `);
 
@@ -1004,6 +1039,15 @@ const usersDB = {
     });
     return this.getByEmail(email);
   },
+
+  async getAdmins() {
+    await ensureInit();
+    if (USE_POSTGRES) {
+      const result = await pgPool.query("SELECT * FROM users WHERE role = 'admin' ORDER BY email");
+      return result.rows;
+    }
+    return sqlite.prepare("SELECT * FROM users WHERE role = 'admin' ORDER BY email").all();
+  },
 };
 
 const whitelistDB = {
@@ -1066,6 +1110,116 @@ const whitelistDB = {
   },
 };
 
+const whitelistRemovalDB = {
+  async getAll() {
+    await ensureInit();
+    if (USE_POSTGRES) {
+      const result = await pgPool.query('SELECT * FROM whitelist_removal_requests ORDER BY created_at DESC');
+      return result.rows;
+    }
+    return sqlite.prepare('SELECT * FROM whitelist_removal_requests ORDER BY created_at DESC').all();
+  },
+
+  async getByEmail(email) {
+    await ensureInit();
+    const normalized = (email || '').trim().toLowerCase();
+    if (!normalized) return null;
+    if (USE_POSTGRES) {
+      const result = await pgPool.query('SELECT * FROM whitelist_removal_requests WHERE email = $1', [normalized]);
+      return result.rows[0] || null;
+    }
+    return sqlite.prepare('SELECT * FROM whitelist_removal_requests WHERE email = ?').get(normalized) || null;
+  },
+
+  async createRequest(email, createdBy) {
+    await ensureInit();
+    const normalized = (email || '').trim().toLowerCase();
+    if (!normalized) return null;
+    if (USE_POSTGRES) {
+      await pgPool.query(
+        `INSERT INTO whitelist_removal_requests (email, created_by)
+         VALUES ($1, $2)
+         ON CONFLICT (email) DO NOTHING`,
+        [normalized, createdBy]
+      );
+      const result = await pgPool.query('SELECT * FROM whitelist_removal_requests WHERE email = $1', [normalized]);
+      return result.rows[0] || null;
+    }
+    sqlite.prepare(
+      `INSERT OR IGNORE INTO whitelist_removal_requests (email, created_by)
+       VALUES (?, ?)`
+    ).run(normalized, createdBy);
+    return sqlite.prepare('SELECT * FROM whitelist_removal_requests WHERE email = ?').get(normalized) || null;
+  },
+
+  async addVote(email, voterEmail) {
+    await ensureInit();
+    const normalized = (email || '').trim().toLowerCase();
+    const voter = (voterEmail || '').trim().toLowerCase();
+    if (!normalized || !voter) return false;
+    if (USE_POSTGRES) {
+      await pgPool.query(
+        `INSERT INTO whitelist_removal_votes (email, voter_email)
+         VALUES ($1, $2)
+         ON CONFLICT (email, voter_email) DO NOTHING`,
+        [normalized, voter]
+      );
+      return true;
+    }
+    sqlite.prepare(
+      `INSERT OR IGNORE INTO whitelist_removal_votes (email, voter_email)
+       VALUES (?, ?)`
+    ).run(normalized, voter);
+    return true;
+  },
+
+  async countVotes(email) {
+    await ensureInit();
+    const normalized = (email || '').trim().toLowerCase();
+    if (!normalized) return 0;
+    if (USE_POSTGRES) {
+      const result = await pgPool.query(
+        'SELECT COUNT(*)::int as cnt FROM whitelist_removal_votes WHERE email = $1',
+        [normalized]
+      );
+      return result.rows[0]?.cnt || 0;
+    }
+    const row = sqlite.prepare('SELECT COUNT(*) as cnt FROM whitelist_removal_votes WHERE email = ?').get(normalized);
+    return row?.cnt || 0;
+  },
+
+  async hasVoted(email, voterEmail) {
+    await ensureInit();
+    const normalized = (email || '').trim().toLowerCase();
+    const voter = (voterEmail || '').trim().toLowerCase();
+    if (!normalized || !voter) return false;
+    if (USE_POSTGRES) {
+      const result = await pgPool.query(
+        'SELECT email FROM whitelist_removal_votes WHERE email = $1 AND voter_email = $2',
+        [normalized, voter]
+      );
+      return !!result.rows[0];
+    }
+    const row = sqlite.prepare(
+      'SELECT email FROM whitelist_removal_votes WHERE email = ? AND voter_email = ?'
+    ).get(normalized, voter);
+    return !!row;
+  },
+
+  async clearRequest(email) {
+    await ensureInit();
+    const normalized = (email || '').trim().toLowerCase();
+    if (!normalized) return;
+    if (USE_POSTGRES) {
+      await pgPool.query('DELETE FROM whitelist_removal_votes WHERE email = $1', [normalized]);
+      await pgPool.query('DELETE FROM whitelist_removal_requests WHERE email = $1', [normalized]);
+      return;
+    }
+    sqlite.prepare('DELETE FROM whitelist_removal_votes WHERE email = ?').run(normalized);
+    sqlite.prepare('DELETE FROM whitelist_removal_requests WHERE email = ?').run(normalized);
+  },
+};
+
 const schoolsDB = {
   async getAll() {
     await ensureInit();
@@ -1115,6 +1269,7 @@ module.exports = {
   bookingsDB,
   usersDB,
   whitelistDB,
+  whitelistRemovalDB,
   schoolsDB,
   ready: ensureInit,
 };
