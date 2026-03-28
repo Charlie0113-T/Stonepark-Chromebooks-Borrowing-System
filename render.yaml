@@ -1,6 +1,14 @@
+databases:
+  - name: stonepark-db
+    plan: free
+    databaseName: stonepark_chromebook
+    user: stonepark
+
 services:
   - type: web
     name: stonepark-chromebook-api
+    plan: free
+    region: oregon
     runtime: node
     buildCommand: npm install --prefix backend
     startCommand: npm start --prefix backend
@@ -8,15 +16,15 @@ services:
     autoDeploy: true
     envVars:
       - key: NODE_VERSION
-        value: 20
+        value: "20"
       - key: NODE_ENV
         value: production
       - key: PGSSLMODE
         value: require
       - key: AUTH_BYPASS
         value: "false"
-      - key: ALLOWED_EMAILS
-        value: "chta0655@cloud.edu.pe.ca,dmdunn@cloud.edu.pe.ca,wxpoirier@cloud.edu.pe.ca,sjvos@cloud.edu.pe.ca,st_srchisholm@cloud.edu.pe.ca,sdmacswain@cloud.edu.pe.ca,tamisener@cloud.edu.pe.ca,cmorrison@cloud.edu.pe.ca,mpcarver@cloud.edu.pe.ca,zcgallison@cloud.edu.pe.ca"
+      - key: WHITELIST_SEED
+        sync: false
       - key: ADMIN_USERS
         sync: false
       - key: CORS_ORIGIN
@@ -24,7 +32,9 @@ services:
       - key: FRONTEND_URL
         sync: false
       - key: DATABASE_URL
-        sync: false
+        fromDatabase:
+          name: stonepark-db
+          property: connectionString
       - key: JWT_SECRET
         generateValue: true
       - key: GOOGLE_CLIENT_ID
@@ -33,3 +43,33 @@ services:
         sync: false
       - key: GOOGLE_CALLBACK_URL
         sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_SECURE
+        value: "false"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: NOTIFY_FROM
+        sync: false
+      - key: NOTIFY_TO
+        sync: false
+
+  - type: web
+    name: stonepark-chromebook-frontend
+    plan: free
+    region: oregon
+    runtime: static
+    buildCommand: npm install --prefix frontend && npm run build --prefix frontend
+    staticPublishPath: frontend/build
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: public, max-age=0, must-revalidate
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

@@ -1,8 +1,11 @@
 {
   "name": "stonepark-chromebook-manager",
   "version": "1.0.0",
-  "description": "Stonepark Secondary School Chromebook Borrowing Management System",
+  "description": "Stonepark Intermediate School Chromebook Borrowing Management System",
   "private": true,
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "install:all": "npm install --prefix backend && npm install --prefix frontend",
     "start": "npm run start:backend",
@@ -11,6 +14,12 @@
     "build:frontend": "npm run build --prefix frontend",
     "dev:backend": "npm run dev --prefix backend"
   },
-  "keywords": ["chromebook", "school", "booking", "react", "express"],
-  "license": "MIT"
+  "keywords": [
+    "chromebook",
+    "school",
+    "booking",
+    "react",
+    "express"
+  ],
+  "license": "Apache-2.0"
 }

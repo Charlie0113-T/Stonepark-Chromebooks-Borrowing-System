@@ -12,26 +12,32 @@
  * as authenticated as a default admin user – useful during local development.
  */
 
-const jwt = require('jsonwebtoken');
+const jwt = require("jsonwebtoken");
 
-const AUTH_BYPASS = process.env.AUTH_BYPASS === 'true' || !process.env.JWT_SECRET;
+const AUTH_BYPASS = process.env.AUTH_BYPASS === "true";
 
-if (!process.env.JWT_SECRET && !AUTH_BYPASS) {
-  // Throw at startup so the misconfiguration is caught immediately.
-  throw new Error('JWT_SECRET environment variable is required when AUTH_BYPASS is not true. Set it in your .env file.');
+if (!AUTH_BYPASS && !process.env.JWT_SECRET) {
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "JWT_SECRET environment variable is required in production. Set it in your .env file or enable AUTH_BYPASS=true for development.",
+    );
+  }
+  console.warn(
+    "[AUTH] WARNING: JWT_SECRET is not set. Using insecure default. Set JWT_SECRET in .env for production.",
+  );
 }
 
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-in-production";
 
 const DEFAULT_DEV_USER = {
-  id: 'dev-user',
-  email: 'admin@stonepark.school.nz',
-  name: 'Dev Admin',
-  role: 'admin',
-  schoolId: 'school-default',
+  id: "dev-user",
+  email: "admin@stonepark.school.nz",
+  name: "Dev Admin",
+  role: "admin",
+  schoolId: "school-default",
 };
 
-const { whitelistDB } = require('../db/database');
+const { whitelistDB } = require("../db/database");
 
 async function isAllowedEmail(email) {
   return whitelistDB.isWhitelisted(email);
@@ -42,9 +48,15 @@ async function isAllowedEmail(email) {
  */
 function signToken(user) {
   return jwt.sign(
-    { id: user.id, email: user.email, name: user.name, role: user.role, schoolId: user.schoolId },
+    {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      schoolId: user.schoolId,
+    },
     JWT_SECRET,
-    { expiresIn: '8h' }
+    { expiresIn: "8h" },
   );
 }
 
@@ -70,14 +82,18 @@ function requireAuth(req, res, next) {
   }
 
   const header = req.headers.authorization;
-  if (!header || !header.startsWith('Bearer ')) {
-    return res.status(401).json({ success: false, message: 'Authentication required.' });
+  if (!header || !header.startsWith("Bearer ")) {
+    return res
+      .status(401)
+      .json({ success: false, message: "Authentication required." });
   }
 
   const token = header.slice(7);
   const payload = verifyToken(token);
   if (!payload) {
-    return res.status(401).json({ success: false, message: 'Invalid or expired token.' });
+    return res
+      .status(401)
+      .json({ success: false, message: "Invalid or expired token." });
   }
 
   req.user = payload;
@@ -89,8 +105,10 @@ function requireAuth(req, res, next) {
  * Must be used after requireAuth.
  */
 function requireAdmin(req, res, next) {
-  if (!req.user || req.user.role !== 'admin') {
-    return res.status(403).json({ success: false, message: 'Admin role required.' });
+  if (!req.user || req.user.role !== "admin") {
+    return res
+      .status(403)
+      .json({ success: false, message: "Admin role required." });
   }
   next();
 }
@@ -102,7 +120,12 @@ function requireAdmin(req, res, next) {
 async function requireWhitelisted(req, res, next) {
   if (AUTH_BYPASS) return next();
   if (!req.user || !(await isAllowedEmail(req.user.email))) {
-    return res.status(403).json({ success: false, message: 'This account is not on the whitelist.' });
+    return res
+      .status(403)
+      .json({
+        success: false,
+        message: "This account is not on the whitelist.",
+      });
   }
   next();
 }

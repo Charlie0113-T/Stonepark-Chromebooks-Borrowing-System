@@ -10,7 +10,7 @@
  * If the env vars are not set, notifications are silently skipped (dev-friendly).
  */
 
-const nodemailer = require('nodemailer');
+const nodemailer = require("nodemailer");
 
 // ── Transporter ───────────────────────────────────────────────────────────────
 
@@ -22,8 +22,8 @@ function getTransporter() {
 
   transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
-    port: parseInt(process.env.SMTP_PORT || '587', 10),
-    secure: process.env.SMTP_SECURE === 'true',
+    port: parseInt(process.env.SMTP_PORT || "587", 10),
+    secure: process.env.SMTP_SECURE === "true",
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
@@ -36,7 +36,9 @@ function getTransporter() {
 
 async function sendEmail({ to, subject, text, html }) {
   const t = getTransporter();
-  if (!t) return; // Not configured
+  if (!t) {
+    return { ok: false, reason: "smtp_not_configured" };
+  }
 
   const mailOptions = {
     from: process.env.NOTIFY_FROM || process.env.SMTP_USER,
@@ -49,8 +51,10 @@ async function sendEmail({ to, subject, text, html }) {
 
   try {
     await t.sendMail(mailOptions);
+    return { ok: true };
   } catch (err) {
-    console.error('[Notifications] Email send failed:', err.message);
+    console.error("[Notifications] Email send failed:", err.message);
+    return { ok: false, reason: "send_failed" };
   }
 }
 
@@ -61,7 +65,7 @@ async function sendGoogleChatMessage(text) {
   if (!webhookUrl) return; // Not configured
 
   try {
-    const https = require('https');
+    const https = require("https");
     const url = new URL(webhookUrl);
     const body = JSON.stringify({ text });
     await new Promise((resolve, reject) => {
@@ -69,20 +73,23 @@ async function sendGoogleChatMessage(text) {
         {
           hostname: url.hostname,
           path: url.pathname + url.search,
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Content-Length": Buffer.byteLength(body),
+          },
         },
         (res) => {
           res.resume();
-          res.on('end', resolve);
-        }
+          res.on("end", resolve);
+        },
       );
-      req.on('error', reject);
+      req.on("error", reject);
       req.write(body);
       req.end();
     });
   } catch (err) {
-    console.error('[Notifications] Google Chat webhook failed:', err.message);
+    console.error("[Notifications] Google Chat webhook failed:", err.message);
   }
 }
 
@@ -94,6 +101,13 @@ async function sendGoogleChatMessage(text) {
  * @param {object} resource - resource object
  */
 async function notifyBookingCreated(booking, resource) {
+  if (!process.env.NOTIFY_TO) {
+    console.warn(
+      "[Notifications] NOTIFY_TO not configured, skipping email notification.",
+    );
+    return;
+  }
+
   const subject = `📚 New Chromebook Booking – ${resource.name}`;
   const body = [
     `A new Chromebook booking has been created.`,
@@ -103,13 +117,15 @@ async function notifyBookingCreated(booking, resource) {
     `Quantity: ${booking.quantity}`,
     `From:  ${new Date(booking.startTime).toLocaleString()}`,
     `Until: ${new Date(booking.endTime).toLocaleString()}`,
-    booking.notes ? `Notes: ${booking.notes}` : '',
+    booking.notes ? `Notes: ${booking.notes}` : "",
     ``,
     `Booking ID: ${booking.id}`,
-  ].filter((l) => l !== '').join('\n');
+  ]
+    .filter((l) => l !== "")
+    .join("\n");
 
   await Promise.all([
-    sendEmail({ to: process.env.NOTIFY_TO || '', subject, text: body }),
+    sendEmail({ to: process.env.NOTIFY_TO || "", subject, text: body }),
     sendGoogleChatMessage(`${subject}\n${body}`),
   ]);
 }
@@ -118,6 +134,13 @@ async function notifyBookingCreated(booking, resource) {
  * Notify when a booking is marked as returned.
  */
 async function notifyBookingReturned(booking, resource) {
+  if (!process.env.NOTIFY_TO) {
+    console.warn(
+      "[Notifications] NOTIFY_TO not configured, skipping email notification.",
+    );
+    return;
+  }
+
   const subject = `✅ Chromebook Returned – ${resource.name}`;
   const body = [
     `A Chromebook booking has been marked as returned.`,
@@ -126,10 +149,10 @@ async function notifyBookingReturned(booking, resource) {
     `Borrower: ${booking.borrower} (${booking.borrowerClass})`,
     `Returned at: ${new Date(booking.actualReturnTime).toLocaleString()}`,
     `Booking ID: ${booking.id}`,
-  ].join('\n');
+  ].join("\n");
 
   await Promise.all([
-    sendEmail({ to: process.env.NOTIFY_TO || '', subject, text: body }),
+    sendEmail({ to: process.env.NOTIFY_TO || "", subject, text: body }),
     sendGoogleChatMessage(`${subject}\n${body}`),
   ]);
 }
@@ -141,15 +164,22 @@ async function notifyBookingReturned(booking, resource) {
 async function notifyOverdueBookings(overdueList) {
   if (!overdueList.length) return;
 
+  if (!process.env.NOTIFY_TO) {
+    console.warn(
+      "[Notifications] NOTIFY_TO not configured, skipping email notification.",
+    );
+    return;
+  }
+
   const subject = `⚠️ Overdue Chromebook Bookings (${overdueList.length})`;
   const lines = overdueList.map(
     ({ booking, resource }) =>
-      `• ${resource.name}: ${booking.borrower} (${booking.borrowerClass}) – ended ${new Date(booking.endTime).toLocaleString()}`
+      `• ${resource.name}: ${booking.borrower} (${booking.borrowerClass}) – ended ${new Date(booking.endTime).toLocaleString()}`,
   );
-  const body = [`The following bookings are overdue:`, '', ...lines].join('\n');
+  const body = [`The following bookings are overdue:`, "", ...lines].join("\n");
 
   await Promise.all([
-    sendEmail({ to: process.env.NOTIFY_TO || '', subject, text: body }),
+    sendEmail({ to: process.env.NOTIFY_TO || "", subject, text: body }),
     sendGoogleChatMessage(`${subject}\n${body}`),
   ]);
 }

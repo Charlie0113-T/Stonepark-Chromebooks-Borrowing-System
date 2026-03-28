@@ -30,3 +30,15 @@ yarn-error.log*
 .DS_Store
 .eslintcache
 .vercel
+
+# IDE / editor files
+.idea/
+.vscode/
+*.swp
+
+# Windows files
+Thumbs.db
+Desktop.ini
+
+# Test coverage
+coverage/

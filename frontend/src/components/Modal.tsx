@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from "react";
 
 interface ModalProps {
   title: string;
@@ -7,6 +7,21 @@ interface ModalProps {
 }
 
 const Modal: React.FC<ModalProps> = ({ title, onClose, children }) => {
+  const titleId = `modal-title-${title.replace(/\s+/g, "-").toLowerCase()}`;
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    dialogRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
@@ -17,17 +32,19 @@ const Modal: React.FC<ModalProps> = ({ title, onClose, children }) => {
       />
       {/* Dialog */}
       <div
-        className="relative bg-white rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto"
-        style={{ border: '2px solid #333333' }}
+        ref={dialogRef}
+        tabIndex={-1}
+        className="relative bg-white rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto focus:outline-none"
+        style={{ border: "2px solid #333333" }}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="modal-title"
+        aria-labelledby={titleId}
       >
         <div
           className="flex items-center justify-between px-5 py-4"
-          style={{ borderBottom: '1px solid #333333' }}
+          style={{ borderBottom: "1px solid #333333" }}
         >
-          <h2 id="modal-title" className="text-lg font-semibold text-gray-900">
+          <h2 id={titleId} className="text-lg font-semibold text-gray-900">
             {title}
           </h2>
           <button

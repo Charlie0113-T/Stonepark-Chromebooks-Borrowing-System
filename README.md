@@ -2,6 +2,11 @@
 
 A full-stack web application for Stonepark Intermediate School to manage the borrowing and reservation of Chromebooks, including charging cabinets and individual devices.
 
+## Repository
+
+- GitHub: https://github.com/Charlie0113-T/Stonepark-Chromebooks-Borrowing-System.git
+- Live frontend: https://stonepark-chromebook-manager.vercel.app
+
 ---
 
 ## ✨ Features
@@ -38,7 +43,7 @@ A full-stack web application for Stonepark Intermediate School to manage the bor
 |-------|------------|
 | **Frontend** | React 19, TypeScript, TailwindCSS 3, Recharts, Axios, react-big-calendar, qrcode.react |
 | **Backend** | Node.js, Express 5 |
-| **Database** | **SQLite** via `better-sqlite3` (production-ready; see [Switching to PostgreSQL](#-switching-to-postgresql)) |
+| **Database** | SQLite via `better-sqlite3` in local development; production-ready PostgreSQL deployment supported via `render.yaml` |
 | **Auth** | JWT (`jsonwebtoken`) + `passport-google-oauth20` |
 | **Notifications** | Nodemailer (SMTP) + Google Chat incoming webhook |
 | **PWA** | Custom service worker with cache-first (static) + network-first (API) strategy |
@@ -89,6 +94,27 @@ A full-stack web application for Stonepark Intermediate School to manage the bor
         └── App.tsx                # Main app – tabs, school selector, auth header
 ```
 
+## Deployment
+
+### Frontend on Vercel
+
+- `vercel.json` is configured for a React single-page app.
+- Build command: `npm run build --prefix frontend`
+- Output directory: `frontend/build`
+
+### Backend on Render
+
+- `render.yaml` defines a Node API service and PostgreSQL database.
+- Configure environment variables in the Render dashboard after import.
+- Set `AUTH_BYPASS=false` in production.
+- Set `CORS_ORIGIN` and `FRONTEND_URL` to your deployed frontend URL.
+
+## Notes
+
+- The default local setup uses SQLite for simplicity.
+- Production deployment is intended to use PostgreSQL.
+- Do not commit secrets such as `JWT_SECRET`, SMTP credentials, or OAuth client secrets.
+
 ---
 
 ## 🚀 Getting Started
@@ -103,7 +129,7 @@ A full-stack web application for Stonepark Intermediate School to manage the bor
 ```bash
 cd backend
 npm install
-cp .env.example .env   # edit with your secrets (or leave AUTH_BYPASS=true for local dev)
+cp .env.example .env   # edit with your secrets
 npm start              # production
 # or
 npm run dev            # development (nodemon hot-reload)
@@ -112,7 +138,7 @@ npm run dev            # development (nodemon hot-reload)
 Server runs at **http://localhost:4000**
 
 The SQLite database is created automatically at `backend/data/chromebook.db` on first run.
-Seed data (9 resources, 8 bookings) is inserted only if the database is empty.
+Seed data is inserted only if the database is empty.
 
 ### 2. Frontend
 
@@ -128,7 +154,7 @@ npm run build      # production build in /build
 
 ## ⚙️ Environment Variables (`.env`)
 
-Copy `backend/.env.example` to `backend/.env` and configure:
+Copy `backend/.env.example` to `backend/.env` and configure the values for your environment:
 
 ```env
 # ── Server ────────────────────────────────────────────────────────────────────
@@ -139,7 +165,7 @@ DB_PATH=./data/chromebook.db
 
 # ── Authentication ────────────────────────────────────────────────────────────
 JWT_SECRET=change-this-to-a-secure-random-string
-AUTH_BYPASS=true                            # set to false in production
+AUTH_BYPASS=false                           # use true only for local development
 
 # Google OAuth 2.0 (optional)
 GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
@@ -163,8 +189,10 @@ GOOGLE_CHAT_WEBHOOK_URL=https://chat.googleapis.com/v1/spaces/.../messages?key=.
 
 ## 🔐 Authentication
 
-### Dev Mode (default)
-Set `AUTH_BYPASS=true` in `.env`. All API endpoints are open — no token required.
+The current repository is ready for deployment to GitHub, Vercel, and Render. For production, make sure you set all required secrets and disable auth bypass.
+
+### Dev Mode
+Set `AUTH_BYPASS=true` in `.env` only for local testing. All API endpoints are open — no token required.
 
 ### Email / Password
 `POST /api/auth/login` with `{ "email": "...", "name": "..." }` returns a JWT.
@@ -174,9 +202,11 @@ The frontend stores it in `localStorage` and sends it as `Authorization: Bearer 
 1. Create an OAuth 2.0 client ID in [Google Cloud Console](https://console.cloud.google.com/).
 2. Add `http://localhost:4000/api/auth/google/callback` as an authorised redirect URI.
 3. Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_CALLBACK_URL` in `.env`.
-4. Users click **Sign in with Google** → redirected to Google → token returned in URL.
+4. Users click **Sign in with Google** → redirected to Google → token returned in the browser URL fragment.
 
 ### Admin & Whitelist (Recommended)
+
+For deployment, configure these values in your host dashboard rather than committing them to the repository.
 
 - Recommendation: Prefer Google OAuth for all seeded teachers/admins — this avoids sharing or managing passwords. If a teacher/admin has a Google Workspace account that matches a whitelisted email, they will be recognized on first Google sign-in and (if listed in `ADMIN_USERS`) granted admin role.
 - Ensure the following environment variables on your deployment (Render or other host):
@@ -258,6 +288,15 @@ Every booking has a **📲 QR** button that displays an SVG QR code containing:
 ```
 
 A scanner (e.g. a tablet at the resource location) reads the code and can `PATCH /api/bookings/:id/return` to check the device back in, or `PATCH /api/bookings/:id/cancel` to cancel.
+
+---
+
+## ✅ Before Publishing to GitHub
+
+- Review `.env` files and keep secrets out of the repository.
+- Confirm the repository remote is set to `https://github.com/Charlie0113-T/Stonepark-Chromebooks-Borrowing-System.git`.
+- Verify the GitHub repository branch is `main`.
+- After updating the README, commit and push your changes from your local Git client.
 
 **API endpoint:**
 ```

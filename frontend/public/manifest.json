@@ -12,18 +12,30 @@
       "src": "logo192.png",
       "type": "image/png",
       "sizes": "192x192",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "logo192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "maskable"
     },
     {
       "src": "logo512.png",
       "type": "image/png",
       "sizes": "512x512",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "logo512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "maskable"
     }
   ],
   "start_url": ".",
   "display": "standalone",
-  "orientation": "portrait-primary",
+  "orientation": "any",
   "theme_color": "#333333",
   "background_color": "#f8f9fa",
   "categories": ["education", "productivity"],

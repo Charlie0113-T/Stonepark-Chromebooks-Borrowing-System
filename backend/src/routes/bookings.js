@@ -9,22 +9,43 @@
  * PATCH  /api/bookings/:id/cancel   - cancel a booking
  */
 
-const express = require('express');
-const { randomUUID } = require('node:crypto');
-const QRCode = require('qrcode');
-const { resourcesDB, bookingsDB, usersDB } = require('../db/database');
-const bcrypt = require('bcryptjs');
-const { checkConflictDB, isBookingOverdue } = require('../models/booking');
-const { notifyBookingCreated, notifyBookingReturned } = require('../services/notifications');
-const { requireAuth, requireWhitelisted, isAllowedEmail } = require('../middleware/auth');
+const express = require("express");
+const { randomUUID } = require("node:crypto");
+const QRCode = require("qrcode");
+const { resourcesDB, bookingsDB, usersDB } = require("../db/database");
+const bcrypt = require("bcryptjs");
+const { checkConflictDB, isBookingOverdue } = require("../models/booking");
+const {
+  notifyBookingCreated,
+  notifyBookingReturned,
+} = require("../services/notifications");
+const {
+  requireAuth,
+  requireWhitelisted,
+  isAllowedEmail,
+} = require("../middleware/auth");
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
 
 module.exports = function createBookingsRouter() {
   const router = express.Router();
 
   // GET /api/bookings
-  router.get('/', async (req, res) => {
+  router.get("/", async (req, res) => {
     const { resourceId, status, search, schoolId } = req.query;
-    let result = await bookingsDB.getAll({ resourceId, status, search, schoolId });
+    let result = await bookingsDB.getAll({
+      resourceId,
+      status,
+      search,
+      schoolId,
+    });
 
     // Sort: overdue active first, then active, then returned, then cancelled
     const statusOrder = { active: 0, returned: 1, cancelled: 2 };
@@ -43,19 +64,26 @@ module.exports = function createBookingsRouter() {
   });
 
   // GET /api/bookings/:id
-  router.get('/:id', async (req, res) => {
+  router.get("/:id", async (req, res) => {
     const booking = await bookingsDB.getById(req.params.id);
     if (!booking) {
-      return res.status(404).json({ success: false, message: 'Booking not found.' });
+      return res
+        .status(404)
+        .json({ success: false, message: "Booking not found." });
     }
-    res.json({ success: true, data: { ...booking, isOverdue: isBookingOverdue(booking) } });
+    res.json({
+      success: true,
+      data: { ...booking, isOverdue: isBookingOverdue(booking) },
+    });
   });
 
   // GET /api/bookings/:id/qr  – returns a PNG QR code for the booking
-  router.get('/:id/qr', async (req, res) => {
+  router.get("/:id/qr", async (req, res) => {
     const booking = await bookingsDB.getById(req.params.id);
     if (!booking) {
-      return res.status(404).json({ success: false, message: 'Booking not found.' });
+      return res
+        .status(404)
+        .json({ success: false, message: "Booking not found." });
     }
     try {
       const qrData = JSON.stringify({
@@ -64,30 +92,33 @@ module.exports = function createBookingsRouter() {
         borrower: booking.borrower,
         status: booking.status,
       });
-      const format = req.query.format === 'svg' ? 'svg' : 'png';
-      if (format === 'svg') {
-        const svg = await QRCode.toString(qrData, { type: 'svg' });
-        res.setHeader('Content-Type', 'image/svg+xml');
+      const format = req.query.format === "svg" ? "svg" : "png";
+      if (format === "svg") {
+        const svg = await QRCode.toString(qrData, { type: "svg" });
+        res.setHeader("Content-Type", "image/svg+xml");
         return res.send(svg);
       }
-      const buffer = await QRCode.toBuffer(qrData, { type: 'png', width: 300 });
-      res.setHeader('Content-Type', 'image/png');
+      const buffer = await QRCode.toBuffer(qrData, { type: "png", width: 300 });
+      res.setHeader("Content-Type", "image/png");
       res.send(buffer);
     } catch (err) {
-      console.error('[QR] Generation failed:', err);
-      res.status(500).json({ success: false, message: 'QR code generation failed.' });
+      console.error("[QR] Generation failed:", err);
+      res
+        .status(500)
+        .json({ success: false, message: "QR code generation failed." });
     }
   });
 
   // GET /api/bookings/:id/return-via-qr - show admin confirmation form
-  router.get('/:id/return-via-qr', async (req, res) => {
+  router.get("/:id/return-via-qr", async (req, res) => {
     const booking = await bookingsDB.getById(req.params.id);
     if (!booking) {
-      return res.status(404).send('<h2>Booking not found.</h2>');
+      return res.status(404).send("<h2>Booking not found.</h2>");
     }
-    const statusMsg = booking.status === 'active'
-      ? 'Admin confirmation required to return this booking.'
-      : `Booking is already ${booking.status}.`;
+    const statusMsg =
+      booking.status === "active"
+        ? "Admin confirmation required to return this booking."
+        : `Booking is already ${booking.status}.`;
 
     return res.send(`
       <html>
@@ -104,9 +135,9 @@ module.exports = function createBookingsRouter() {
         </head>
         <body>
           <h2>Return Booking</h2>
-          <p>${statusMsg}</p>
+          <p>${escapeHtml(statusMsg)}</p>
           <div class="card">
-            <form method="POST" action="/api/bookings/${booking.id}/return-via-qr">
+            <form method="POST" action="/api/bookings/${escapeHtml(booking.id)}/return-via-qr">
               <label for="email">Admin Email</label>
               <input id="email" name="email" type="email" required />
               <label for="password">Admin Password</label>
@@ -120,66 +151,132 @@ module.exports = function createBookingsRouter() {
   });
 
   // POST /api/bookings/:id/return-via-qr - admin confirmation and return
-  router.post('/:id/return-via-qr', async (req, res) => {
+  router.post("/:id/return-via-qr", async (req, res) => {
     const booking = await bookingsDB.getById(req.params.id);
     if (!booking) {
-      return res.status(404).send('<h2>Booking not found.</h2>');
+      return res.status(404).send("<h2>Booking not found.</h2>");
     }
 
     const { email, password } = req.body;
     if (!email || !password) {
-      return res.status(400).send('<h2>Email and password are required.</h2>');
+      return res.status(400).send("<h2>Email and password are required.</h2>");
     }
     if (!(await isAllowedEmail(email))) {
-      return res.status(403).send('<h2>This email is not on the whitelist.</h2>');
+      return res
+        .status(403)
+        .send("<h2>This email is not on the whitelist.</h2>");
     }
 
     const user = await usersDB.getByEmail(email);
-    if (!user || user.role !== 'admin' || !user.password_hash) {
-      return res.status(403).send('<h2>Admin access required.</h2>');
+    if (!user || user.role !== "admin" || !user.password_hash) {
+      return res.status(403).send("<h2>Admin access required.</h2>");
     }
 
     const ok = await bcrypt.compare(password, user.password_hash);
     if (!ok) {
-      return res.status(401).send('<h2>Invalid credentials.</h2>');
+      return res.status(401).send("<h2>Invalid credentials.</h2>");
     }
 
-    if (booking.status !== 'active') {
-      return res.send(`<h2>No action needed.</h2><p>Booking ${booking.id} is already ${booking.status}.</p>`);
+    if (booking.status !== "active") {
+      return res.send(
+        `<h2>No action needed.</h2><p>Booking ${booking.id} is already ${booking.status}.</p>`,
+      );
     }
 
     const updated = await bookingsDB.update(req.params.id, {
-      status: 'returned',
+      status: "returned",
       actualReturnTime: new Date().toISOString(),
     });
     const resource = await resourcesDB.getById(booking.resourceId);
     if (resource) notifyBookingReturned(updated, resource).catch(() => {});
 
     return res.send(
-      `<h2>Return successful.</h2><p>Booking ${updated.id} has been marked as returned.</p>`
+      `<h2>Return successful.</h2><p>Booking ${updated.id} has been marked as returned.</p>`,
     );
   });
 
   // POST /api/bookings - create new booking
-  router.post('/', requireAuth, requireWhitelisted, async (req, res) => {
-    const { resourceId, borrower, borrowerClass, quantity, startTime, endTime, notes } = req.body;
+  router.post("/", requireAuth, requireWhitelisted, async (req, res) => {
+    const {
+      resourceId,
+      borrower,
+      borrowerClass,
+      quantity,
+      startTime,
+      endTime,
+      notes,
+    } = req.body;
 
     // Validate required fields
     if (!resourceId || !borrower || !borrowerClass || !startTime || !endTime) {
       return res.status(400).json({
         success: false,
-        message: 'resourceId, borrower, borrowerClass, startTime and endTime are required.',
+        message:
+          "resourceId, borrower, borrowerClass, startTime and endTime are required.",
       });
+    }
+
+    // Validate date formats
+    const parsedStart = new Date(startTime);
+    const parsedEnd = new Date(endTime);
+    if (isNaN(parsedStart.getTime()) || isNaN(parsedEnd.getTime())) {
+      return res.status(400).json({
+        success: false,
+        message: "startTime and endTime must be valid ISO 8601 date strings.",
+      });
+    }
+    if (parsedEnd <= parsedStart) {
+      return res.status(400).json({
+        success: false,
+        message: "endTime must be after startTime.",
+      });
+    }
+
+    // Validate string lengths
+    if (borrower.length > 200) {
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "borrower name is too long (max 200 characters).",
+        });
+    }
+    if (borrowerClass.length > 100) {
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "borrowerClass is too long (max 100 characters).",
+        });
+    }
+    if (notes && notes.length > 1000) {
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "notes is too long (max 1000 characters).",
+        });
     }
 
     const resource = await resourcesDB.getById(resourceId);
     if (!resource) {
-      return res.status(404).json({ success: false, message: 'Resource not found.' });
+      return res
+        .status(404)
+        .json({ success: false, message: "Resource not found." });
     }
 
-    const requestedQty = resource.type === 'single' ? 1 : parseInt(quantity, 10);
-    if (resource.type !== 'single' && (isNaN(requestedQty) || requestedQty < 1)) {
-      return res.status(400).json({ success: false, message: 'quantity must be a positive integer for cabinet resources.' });
+    const requestedQty =
+      resource.type === "single" ? 1 : parseInt(quantity, 10);
+    if (
+      resource.type !== "single" &&
+      (isNaN(requestedQty) || requestedQty < 1)
+    ) {
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "quantity must be a positive integer for cabinet resources.",
+        });
     }
     if (requestedQty > resource.totalQuantity) {
       return res.status(400).json({
@@ -189,7 +286,12 @@ module.exports = function createBookingsRouter() {
     }
 
     // Conflict detection
-    const conflict = await checkConflictDB(resource, startTime, endTime, requestedQty);
+    const conflict = await checkConflictDB(
+      resource,
+      startTime,
+      endTime,
+      requestedQty,
+    );
     if (!conflict.ok) {
       return res.status(409).json({ success: false, message: conflict.reason });
     }
@@ -203,8 +305,8 @@ module.exports = function createBookingsRouter() {
       startTime: new Date(startTime).toISOString(),
       endTime: new Date(endTime).toISOString(),
       actualReturnTime: null,
-      status: 'active',
-      notes: notes || '',
+      status: "active",
+      notes: notes || "",
     });
 
     // Fire-and-forget notification
@@ -214,38 +316,64 @@ module.exports = function createBookingsRouter() {
   });
 
   // PATCH /api/bookings/:id/return
-  router.patch('/:id/return', requireAuth, requireWhitelisted, async (req, res) => {
-    const booking = await bookingsDB.getById(req.params.id);
-    if (!booking) {
-      return res.status(404).json({ success: false, message: 'Booking not found.' });
-    }
-    if (booking.status !== 'active') {
-      return res.status(400).json({ success: false, message: `Booking is already ${booking.status}.` });
-    }
-    const updated = await bookingsDB.update(req.params.id, {
-      status: 'returned',
-      actualReturnTime: new Date().toISOString(),
-    });
+  router.patch(
+    "/:id/return",
+    requireAuth,
+    requireWhitelisted,
+    async (req, res) => {
+      const booking = await bookingsDB.getById(req.params.id);
+      if (!booking) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Booking not found." });
+      }
+      if (booking.status !== "active") {
+        return res
+          .status(400)
+          .json({
+            success: false,
+            message: `Booking is already ${booking.status}.`,
+          });
+      }
+      const updated = await bookingsDB.update(req.params.id, {
+        status: "returned",
+        actualReturnTime: new Date().toISOString(),
+      });
 
-    // Fire-and-forget notification
-    const resource = await resourcesDB.getById(booking.resourceId);
-    if (resource) notifyBookingReturned(updated, resource).catch(() => {});
+      // Fire-and-forget notification
+      const resource = await resourcesDB.getById(booking.resourceId);
+      if (resource) notifyBookingReturned(updated, resource).catch(() => {});
 
-    res.json({ success: true, data: updated });
-  });
+      res.json({ success: true, data: updated });
+    },
+  );
 
   // PATCH /api/bookings/:id/cancel
-  router.patch('/:id/cancel', requireAuth, requireWhitelisted, async (req, res) => {
-    const booking = await bookingsDB.getById(req.params.id);
-    if (!booking) {
-      return res.status(404).json({ success: false, message: 'Booking not found.' });
-    }
-    if (booking.status !== 'active') {
-      return res.status(400).json({ success: false, message: `Booking is already ${booking.status}.` });
-    }
-    const updated = await bookingsDB.update(req.params.id, { status: 'cancelled' });
-    res.json({ success: true, data: updated });
-  });
+  router.patch(
+    "/:id/cancel",
+    requireAuth,
+    requireWhitelisted,
+    async (req, res) => {
+      const booking = await bookingsDB.getById(req.params.id);
+      if (!booking) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Booking not found." });
+      }
+      if (booking.status !== "active") {
+        return res
+          .status(400)
+          .json({
+            success: false,
+            message: `Booking is already ${booking.status}.`,
+          });
+      }
+      const updated = await bookingsDB.update(req.params.id, {
+        status: "cancelled",
+      });
+      res.json({ success: true, data: updated });
+    },
+  );
 
   return router;
 };
