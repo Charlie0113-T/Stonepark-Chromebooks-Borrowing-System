@@ -3,73 +3,73 @@
  * In production this can be replaced by a database adapter.
  */
 
-const { randomUUID } = require('node:crypto');
+const { randomUUID } = require("node:crypto");
 
 // Resource types
 const RESOURCE_TYPE = {
-  CABINET: 'cabinet',   // 班级充电柜
-  SINGLE: 'single',     // 单台 Chromebook
+  CABINET: "cabinet", // 班级充电柜
+  SINGLE: "single", // 单台 Chromebook
 };
 
 // Booking status
 const BOOKING_STATUS = {
-  ACTIVE: 'active',
-  RETURNED: 'returned',
-  CANCELLED: 'cancelled',
+  ACTIVE: "active",
+  RETURNED: "returned",
+  CANCELLED: "cancelled",
 };
 
 // Resource status (derived)
 const RESOURCE_STATUS = {
-  AVAILABLE: 'available',   // 绿色 - 空闲
-  PARTIAL: 'partial',       // 黄色 - 部分占用
-  FULL: 'full',             // 红色 - 已满
+  AVAILABLE: "available", // 绿色 - 空闲
+  PARTIAL: "partial", // 黄色 - 部分占用
+  FULL: "full", // 红色 - 已满
 };
 
 // Seed resources
 const resources = [
   {
-    id: 'res-005',
+    id: "res-005",
     type: RESOURCE_TYPE.SINGLE,
-    name: 'Chromebook #001',
-    classRoom: 'Library',
+    name: "Chromebook #001",
+    classRoom: "Library",
     totalQuantity: 1,
-    description: 'Library Chromebook for student research',
+    description: "Library Chromebook for student research",
   },
   {
-    id: 'res-006',
+    id: "res-006",
     type: RESOURCE_TYPE.SINGLE,
-    name: 'Chromebook #002',
-    classRoom: 'Library',
+    name: "Chromebook #002",
+    classRoom: "Library",
     totalQuantity: 1,
-    description: 'Library Chromebook for student research',
+    description: "Library Chromebook for student research",
   },
   {
-    id: 'res-007',
+    id: "res-007",
     type: RESOURCE_TYPE.SINGLE,
-    name: 'Chromebook #003',
-    classRoom: 'Staff Room',
+    name: "Chromebook #003",
+    classRoom: "Staff Room",
     totalQuantity: 1,
-    description: 'Staff shared Chromebook',
+    description: "Staff shared Chromebook",
   },
   {
-    id: 'res-008',
+    id: "res-008",
     type: RESOURCE_TYPE.SINGLE,
-    name: 'Chromebook #004',
-    classRoom: 'Reception',
+    name: "Chromebook #004",
+    classRoom: "Reception",
     totalQuantity: 1,
-    description: 'Front desk Chromebook for visitor sign-in',
+    description: "Front desk Chromebook for visitor sign-in",
   },
   {
-    id: 'res-009',
+    id: "res-009",
     type: RESOURCE_TYPE.SINGLE,
-    name: 'Chromebook #005',
-    classRoom: 'Room 105',
+    name: "Chromebook #005",
+    classRoom: "Reception",
     totalQuantity: 1,
-    description: 'ESOL support Chromebook',
+    description: "Front desk Chromebook for visitor sign-in",
   },
 ];
 
-for (const grade of ['G7', 'G8', 'G9']) {
+for (const grade of ["G7", "G8", "G9"]) {
   for (let i = 1; i <= 5; i += 1) {
     resources.push({
       id: `res-${grade.toLowerCase()}-cab-${i}`,
@@ -87,99 +87,101 @@ const now = new Date();
 const bookings = [
   {
     id: randomUUID(),
-    resourceId: 'res-g7-cab-1',
-    borrower: 'Ms. Johnson',
-    borrowerClass: 'Year 7',
+    resourceId: "res-g7-cab-1",
+    borrower: "Ms. Johnson",
+    borrowerClass: "Year 7",
     quantity: 15,
     startTime: new Date(now.getTime() - 60 * 60 * 1000).toISOString(),
     endTime: new Date(now.getTime() + 2 * 60 * 60 * 1000).toISOString(),
     actualReturnTime: null,
     status: BOOKING_STATUS.ACTIVE,
-    notes: 'Year 7 Science project',
+    notes: "Year 7 Science project",
   },
   {
     id: randomUUID(),
-    resourceId: 'res-g8-cab-1',
-    borrower: 'Mr. Smith',
-    borrowerClass: 'Year 8',
+    resourceId: "res-g8-cab-1",
+    borrower: "Mr. Smith",
+    borrowerClass: "Year 8",
     quantity: 30,
     startTime: new Date(now.getTime() - 30 * 60 * 1000).toISOString(),
     endTime: new Date(now.getTime() + 90 * 60 * 1000).toISOString(),
     actualReturnTime: null,
     status: BOOKING_STATUS.ACTIVE,
-    notes: 'Year 8 Digital Literacy exam',
+    notes: "Year 8 Digital Literacy exam",
   },
   {
     id: randomUUID(),
-    resourceId: 'res-005',
-    borrower: 'Alice Chen',
-    borrowerClass: 'Year 9',
+    resourceId: "res-005",
+    borrower: "Alice Chen",
+    borrowerClass: "Year 9",
     quantity: 1,
     startTime: new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString(),
     endTime: new Date(now.getTime() - 30 * 60 * 1000).toISOString(),
     actualReturnTime: new Date(now.getTime() - 30 * 60 * 1000).toISOString(),
     status: BOOKING_STATUS.RETURNED,
-    notes: 'Independent research',
+    notes: "Independent research",
   },
   {
     id: randomUUID(),
-    resourceId: 'res-g9-cab-1',
-    borrower: 'Mrs. Williams',
-    borrowerClass: 'Year 9',
+    resourceId: "res-g9-cab-1",
+    borrower: "Mrs. Williams",
+    borrowerClass: "Year 9",
     quantity: 10,
     startTime: new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString(),
     endTime: new Date(now.getTime() + 1 * 60 * 60 * 1000).toISOString(),
     actualReturnTime: null,
     status: BOOKING_STATUS.ACTIVE,
-    notes: 'Year 9 Geography mapping exercise',
+    notes: "Year 9 Geography mapping exercise",
   },
   {
     id: randomUUID(),
-    resourceId: 'res-g8-cab-2',
-    borrower: 'Mr. Patel',
-    borrowerClass: 'Year 10',
+    resourceId: "res-g8-cab-2",
+    borrower: "Mr. Patel",
+    borrowerClass: "Year 10",
     quantity: 20,
     startTime: new Date(now.getTime() - 3 * 60 * 60 * 1000).toISOString(),
     endTime: new Date(now.getTime() - 1 * 60 * 60 * 1000).toISOString(),
     actualReturnTime: null,
     status: BOOKING_STATUS.ACTIVE,
-    notes: 'Digital Arts portfolio work',
+    notes: "Digital Arts portfolio work",
   },
   {
     id: randomUUID(),
-    resourceId: 'res-007',
-    borrower: 'Sarah Kim',
-    borrowerClass: 'Staff',
+    resourceId: "res-007",
+    borrower: "Sarah Kim",
+    borrowerClass: "Staff",
     quantity: 1,
     startTime: new Date(now.getTime() - 1 * 60 * 60 * 1000).toISOString(),
     endTime: new Date(now.getTime() + 3 * 60 * 60 * 1000).toISOString(),
     actualReturnTime: null,
     status: BOOKING_STATUS.ACTIVE,
-    notes: 'Staff meeting notes',
+    notes: "Staff meeting notes",
   },
   {
     id: randomUUID(),
-    resourceId: 'res-g7-cab-2',
-    borrower: 'Ms. Brown',
-    borrowerClass: 'Year 7',
+    resourceId: "res-g7-cab-2",
+    borrower: "Ms. Brown",
+    borrowerClass: "Year 7",
     quantity: 10,
     startTime: new Date(now.getTime() - 4 * 60 * 60 * 1000).toISOString(),
     endTime: new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString(),
-    actualReturnTime: new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString(),
+    actualReturnTime: new Date(
+      now.getTime() - 2 * 60 * 60 * 1000,
+    ).toISOString(),
     status: BOOKING_STATUS.RETURNED,
-    notes: 'Maths assessment completed',
+    notes: "Maths assessment completed",
   },
   {
     id: randomUUID(),
-    resourceId: 'res-009',
-    borrower: 'Jake Thompson',
-    borrowerClass: 'Year 8',
+    resourceId: "res-009",
+    borrower: "Jake Thompson",
+    borrowerClass: "Year 8",
     quantity: 1,
     startTime: new Date(now.getTime() + 1 * 60 * 60 * 1000).toISOString(),
     endTime: new Date(now.getTime() + 2 * 60 * 60 * 1000).toISOString(),
     actualReturnTime: null,
     status: BOOKING_STATUS.CANCELLED,
-    notes: 'Cancelled - student absent',
+    notes: "Cancelled - student absent",
   },
 ];
 

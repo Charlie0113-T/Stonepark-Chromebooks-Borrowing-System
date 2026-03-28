@@ -122,9 +122,9 @@ function buildSeedResources() {
       id: "res-009",
       type: "single",
       name: "Chromebook #005",
-      classRoom: "Room 105",
+      classRoom: "Reception",
       totalQuantity: 1,
-      description: "ESOL support Chromebook",
+      description: "Front desk Chromebook for visitor sign-in",
     },
   ];
 
