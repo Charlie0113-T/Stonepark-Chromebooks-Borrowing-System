@@ -27,6 +27,23 @@ const {
   whitelistRemovalDB,
   whitelistRequestsDB,
 } = require("../db/database");
+
+// ── Admin user management helpers ─────────────────────────────────────────────
+function getStaffSeedEmails() {
+  const raw = (process.env.STAFF_USERS || "").trim();
+  if (!raw) return new Set();
+  const emails = raw
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .map((entry) => {
+      const parts = entry.split(":");
+      return parts.length >= 3 ? parts[1] : parts[0];
+    })
+    .map((email) => (email || "").trim().toLowerCase())
+    .filter(Boolean);
+  return new Set(emails);
+}
 const { sendEmail } = require("../services/notifications");
 
 function getAdminSeedEmails() {
@@ -97,30 +114,24 @@ module.exports = function createAuthRouter() {
         .json({ success: false, message: "email and password are required." });
     }
     if (!(await isAllowedEmail(email))) {
-      return res
-        .status(403)
-        .json({
-          success: false,
-          message: "This email is not on the whitelist.",
-        });
+      return res.status(403).json({
+        success: false,
+        message: "This email is not on the whitelist.",
+      });
     }
     if (password.length < 8) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Password must be at least 8 characters.",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 8 characters.",
+      });
     }
 
     const existing = await usersDB.getByEmail(email);
     if (existing) {
-      return res
-        .status(409)
-        .json({
-          success: false,
-          message: "Account already exists. Please sign in.",
-        });
+      return res.status(409).json({
+        success: false,
+        message: "Account already exists. Please sign in.",
+      });
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
@@ -167,12 +178,10 @@ module.exports = function createAuthRouter() {
         .json({ success: false, message: "email and password are required." });
     }
     if (!(await isAllowedEmail(email))) {
-      return res
-        .status(403)
-        .json({
-          success: false,
-          message: "This email is not on the whitelist.",
-        });
+      return res.status(403).json({
+        success: false,
+        message: "This email is not on the whitelist.",
+      });
     }
 
     const existing = await usersDB.getByEmail(email);
@@ -186,12 +195,10 @@ module.exports = function createAuthRouter() {
 
     const user = await usersDB.verifyPassword(email, password);
     if (!user) {
-      return res
-        .status(401)
-        .json({
-          success: false,
-          message: "Incorrect password. Please try again or reset password.",
-        });
+      return res.status(401).json({
+        success: false,
+        message: "Incorrect password. Please try again or reset password.",
+      });
     }
 
     const adminSeedEmails = getAdminSeedEmails();
@@ -293,12 +300,10 @@ module.exports = function createAuthRouter() {
       });
 
       if (tokenData.error) {
-        return res
-          .status(401)
-          .json({
-            success: false,
-            message: tokenData.error_description || "OAuth failed.",
-          });
+        return res.status(401).json({
+          success: false,
+          message: tokenData.error_description || "OAuth failed.",
+        });
       }
 
       // Decode id_token (JWT) – we trust Google's signature here (simplified)
@@ -320,12 +325,10 @@ module.exports = function createAuthRouter() {
       }
 
       if (!(await isAllowedEmail(payload.email))) {
-        return res
-          .status(403)
-          .json({
-            success: false,
-            message: "This email is not on the whitelist.",
-          });
+        return res.status(403).json({
+          success: false,
+          message: "This email is not on the whitelist.",
+        });
       }
 
       const adminSeedEmails = getAdminSeedEmails();
@@ -387,12 +390,10 @@ module.exports = function createAuthRouter() {
       });
     }
     if (!(await isAllowedEmail(email))) {
-      return res
-        .status(403)
-        .json({
-          success: false,
-          message: "This email is not on the whitelist.",
-        });
+      return res.status(403).json({
+        success: false,
+        message: "This email is not on the whitelist.",
+      });
     }
 
     const user = await usersDB.getByEmail(email);
@@ -435,20 +436,16 @@ module.exports = function createAuthRouter() {
   router.post("/reset-password", authLimiter, async (req, res) => {
     const { token, newPassword } = req.body;
     if (!token || !newPassword) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "token and newPassword are required.",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "token and newPassword are required.",
+      });
     }
     if (newPassword.length < 8) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Password must be at least 8 characters.",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 8 characters.",
+      });
     }
 
     const hash = await bcrypt.hash(newPassword, 10);
@@ -542,12 +539,10 @@ module.exports = function createAuthRouter() {
         (admin) => admin.email.toLowerCase() === normalized,
       );
       if (isAdminTarget) {
-        return res
-          .status(409)
-          .json({
-            success: false,
-            message: "Admin removal requires consensus voting.",
-          });
+        return res.status(409).json({
+          success: false,
+          message: "Admin removal requires consensus voting.",
+        });
       }
       const removed = await whitelistDB.remove(email);
       if (!removed) {
@@ -620,12 +615,10 @@ module.exports = function createAuthRouter() {
       const adminList = await getWhitelistedAdmins();
       const adminEmails = adminList.map((admin) => admin.email.toLowerCase());
       if (!adminEmails.includes(normalized)) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message: "Only admin removal requires voting.",
-          });
+        return res.status(400).json({
+          success: false,
+          message: "Only admin removal requires voting.",
+        });
       }
 
       const eligibleVoters = adminEmails.filter(
@@ -681,12 +674,10 @@ module.exports = function createAuthRouter() {
       const adminList = await getWhitelistedAdmins();
       const adminEmails = adminList.map((admin) => admin.email.toLowerCase());
       if (!adminEmails.includes(req.user.email.toLowerCase())) {
-        return res
-          .status(403)
-          .json({
-            success: false,
-            message: "Only whitelisted admins can vote.",
-          });
+        return res.status(403).json({
+          success: false,
+          message: "Only whitelisted admins can vote.",
+        });
       }
 
       if (req.user.email.toLowerCase() === request.created_by.toLowerCase()) {
@@ -860,6 +851,152 @@ module.exports = function createAuthRouter() {
         );
       }
       res.json({ success: true, message: "Application rejected." });
+    },
+  );
+
+  // ── Admin User Management ──────────────────────────────────────────────────
+  // These routes allow admins to pre-create staff accounts so teachers don't
+  // need to self-sign-up or use Google OAuth.
+
+  // GET /api/auth/users – list all user accounts (admin only)
+  router.get("/users", requireAuth, requireAdmin, async (_req, res) => {
+    const users = await usersDB.getAll();
+    res.json({ success: true, data: users });
+  });
+
+  // POST /api/auth/users – admin creates a staff (or admin) account
+  router.post("/users", requireAuth, requireAdmin, async (req, res) => {
+    const { email, password, name, role = "staff" } = req.body;
+
+    if (!email || !password) {
+      return res
+        .status(400)
+        .json({ success: false, message: "email and password are required." });
+    }
+    if (password.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 8 characters.",
+      });
+    }
+    const validRoles = ["staff", "admin"];
+    if (!validRoles.includes(role)) {
+      return res
+        .status(400)
+        .json({ success: false, message: "role must be 'staff' or 'admin'." });
+    }
+
+    const existing = await usersDB.getByEmail(email);
+    if (existing) {
+      return res
+        .status(409)
+        .json({
+          success: false,
+          message: "An account with this email already exists.",
+        });
+    }
+
+    // Auto-whitelist the new user so they can log in
+    if (!(await whitelistDB.isWhitelisted(email))) {
+      await whitelistDB.add(email, req.user.email);
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    const displayName = name && name.trim() ? name.trim() : email.split("@")[0];
+    const user = await usersDB.createUser({
+      email,
+      name: displayName,
+      role,
+      passwordHash,
+    });
+
+    res.status(201).json({
+      success: true,
+      data: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role,
+      },
+    });
+  });
+
+  // PATCH /api/auth/users/:email/password – admin sets/resets any user's password
+  router.patch(
+    "/users/:email/password",
+    requireAuth,
+    requireAdmin,
+    async (req, res) => {
+      const targetEmail = decodeURIComponent(req.params.email || "");
+      const { newPassword } = req.body;
+
+      if (!newPassword) {
+        return res
+          .status(400)
+          .json({ success: false, message: "newPassword is required." });
+      }
+      if (newPassword.length < 8) {
+        return res.status(400).json({
+          success: false,
+          message: "Password must be at least 8 characters.",
+        });
+      }
+
+      const user = await usersDB.getByEmail(targetEmail);
+      if (!user) {
+        return res
+          .status(404)
+          .json({ success: false, message: "User not found." });
+      }
+
+      const hash = await bcrypt.hash(newPassword, 10);
+      await usersDB.adminSetPassword(targetEmail, hash);
+
+      res.json({
+        success: true,
+        message: `Password updated for ${targetEmail}.`,
+      });
+    },
+  );
+
+  // DELETE /api/auth/users/:email – admin deletes a user account
+  router.delete(
+    "/users/:email",
+    requireAuth,
+    requireAdmin,
+    async (req, res) => {
+      const targetEmail = decodeURIComponent(req.params.email || "");
+
+      if (!targetEmail) {
+        return res
+          .status(400)
+          .json({ success: false, message: "email is required." });
+      }
+      if (req.user.email.toLowerCase() === targetEmail.toLowerCase()) {
+        return res
+          .status(400)
+          .json({
+            success: false,
+            message: "You cannot delete your own account.",
+          });
+      }
+
+      const user = await usersDB.getByEmail(targetEmail);
+      if (!user) {
+        return res
+          .status(404)
+          .json({ success: false, message: "User not found." });
+      }
+      if (user.role === "admin") {
+        return res.status(403).json({
+          success: false,
+          message:
+            "Admin accounts cannot be deleted here. Use whitelist management.",
+        });
+      }
+
+      await usersDB.deleteUser(targetEmail);
+      res.json({ success: true, message: `User ${targetEmail} deleted.` });
     },
   );
 

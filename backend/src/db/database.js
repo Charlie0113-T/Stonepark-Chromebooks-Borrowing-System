@@ -46,6 +46,28 @@ function parseAdminUsers() {
     .filter((u) => u.email && u.password);
 }
 
+function parseStaffUsers() {
+  const raw = (process.env.STAFF_USERS || "").trim();
+  if (!raw) return [];
+  return raw
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .map((entry) => {
+      // Support both "email:password" and "Name:email:password"
+      const parts = entry.split(":");
+      const email = parts.length >= 3 ? parts[1] : parts[0];
+      const password = parts[parts.length - 1];
+      const name = parts.length >= 3 ? parts[0] : null;
+      return {
+        email: (email || "").trim().toLowerCase(),
+        password: (password || "").trim(),
+        name: (name || "").trim() || null,
+      };
+    })
+    .filter((u) => u.email && u.password);
+}
+
 function parseWhitelistSeed() {
   const raw = (process.env.WHITELIST_SEED || "").trim();
   const list = raw
@@ -635,6 +657,7 @@ async function ensureInit() {
       await initPostgres();
       await removeLegacyCabinets();
       await ensureAdminUsers();
+      await ensureStaffUsers();
       await ensureWhitelistSeeds();
       return;
     }
@@ -643,6 +666,7 @@ async function ensureInit() {
     await seedSqliteIfEmpty();
     await removeLegacyCabinets();
     await ensureAdminUsers();
+    await ensureStaffUsers();
     await ensureWhitelistSeeds();
   })();
 
@@ -692,6 +716,52 @@ async function ensureAdminUsers() {
         email: admin.email,
         name,
         role: "admin",
+        passwordHash,
+      });
+  }
+}
+
+async function ensureStaffUsers() {
+  const staffUsers = parseStaffUsers();
+  if (staffUsers.length === 0) return;
+
+  for (const staff of staffUsers) {
+    const passwordHash = await bcrypt.hash(staff.password, 10);
+    const name = staff.name || staff.email.split("@")[0];
+
+    if (USE_POSTGRES) {
+      await pgPool.query(
+        `INSERT INTO users (id, school_id, email, name, role, password_hash)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         ON CONFLICT (email) DO UPDATE SET
+           name = EXCLUDED.name,
+           password_hash = COALESCE(users.password_hash, EXCLUDED.password_hash)`,
+        [
+          `staff-${staff.email}`,
+          "school-default",
+          staff.email,
+          name,
+          "staff",
+          passwordHash,
+        ],
+      );
+      continue;
+    }
+
+    sqlite
+      .prepare(
+        `INSERT INTO users (id, school_id, email, name, role, password_hash)
+       VALUES (@id, @schoolId, @email, @name, @role, @passwordHash)
+       ON CONFLICT(email) DO UPDATE SET
+         name = excluded.name,
+         password_hash = COALESCE(users.password_hash, excluded.password_hash)`,
+      )
+      .run({
+        id: `staff-${staff.email}`,
+        schoolId: "school-default",
+        email: staff.email,
+        name,
+        role: "staff",
         passwordHash,
       });
   }
@@ -1287,6 +1357,53 @@ const usersDB = {
         role,
         googleId,
       });
+    return this.getByEmail(normalized);
+  },
+
+  async getAll() {
+    await ensureInit();
+    if (USE_POSTGRES) {
+      const result = await pgPool.query(
+        "SELECT id, school_id, email, name, role FROM users ORDER BY role, email",
+      );
+      return result.rows;
+    }
+    return (
+      sqlite
+        .prepare(
+          "SELECT id, school_id, email, name, role FROM users ORDER BY role, email",
+        )
+        .all() || []
+    );
+  },
+
+  async deleteUser(email) {
+    await ensureInit();
+    const normalized = (email || "").toLowerCase();
+    if (!normalized) return;
+    if (USE_POSTGRES) {
+      await pgPool.query("DELETE FROM users WHERE LOWER(email) = $1", [
+        normalized,
+      ]);
+      return;
+    }
+    sqlite.prepare("DELETE FROM users WHERE LOWER(email) = ?").run(normalized);
+  },
+
+  async adminSetPassword(email, passwordHash) {
+    await ensureInit();
+    const normalized = (email || "").toLowerCase();
+    if (!normalized) return null;
+    if (USE_POSTGRES) {
+      const result = await pgPool.query(
+        "UPDATE users SET password_hash = $1 WHERE LOWER(email) = $2 RETURNING *",
+        [passwordHash, normalized],
+      );
+      return result.rows[0] || null;
+    }
+    sqlite
+      .prepare("UPDATE users SET password_hash = ? WHERE LOWER(email) = ?")
+      .run(passwordHash, normalized);
     return this.getByEmail(normalized);
   },
 

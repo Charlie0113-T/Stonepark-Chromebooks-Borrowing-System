@@ -16,6 +16,7 @@ import {
   voteAdminRemoval,
 } from "./api";
 import AddResourceForm from "./components/AddResourceForm";
+import StaffManagement from "./components/StaffManagement";
 import AllBookings from "./components/AllBookings";
 import BookingForm from "./components/BookingForm";
 import BookingList from "./components/BookingList";
@@ -56,6 +57,7 @@ function App() {
   const bypassAuth = !envTrue(process.env.REACT_APP_REQUIRE_AUTH);
 
   const [showWhitelist, setShowWhitelist] = useState(false);
+  const [showStaff, setShowStaff] = useState(false);
   const [whitelistEntries, setWhitelistEntries] = useState<WhitelistEntry[]>(
     [],
   );
@@ -353,12 +355,20 @@ function App() {
               <div className="flex items-center gap-2 text-xs text-gray-300">
                 <span>👤 {authUser.name}</span>
                 {authUser.role === "admin" && (
-                  <button
-                    onClick={() => setShowWhitelist(true)}
-                    className="px-2 py-1 rounded border border-gray-400 text-gray-200 hover:bg-gray-600 text-xs"
-                  >
-                    Whitelist
-                  </button>
+                  <>
+                    <button
+                      onClick={() => setShowStaff(true)}
+                      className="px-2 py-1 rounded border border-gray-400 text-gray-200 hover:bg-gray-600 text-xs"
+                    >
+                      👩‍🏫 Staff
+                    </button>
+                    <button
+                      onClick={() => setShowWhitelist(true)}
+                      className="px-2 py-1 rounded border border-gray-400 text-gray-200 hover:bg-gray-600 text-xs"
+                    >
+                      Whitelist
+                    </button>
+                  </>
                 )}
                 <button
                   onClick={handleLogout}
@@ -653,6 +663,15 @@ function App() {
             onSuccess={handleAddResourceSuccess}
             onCancel={() => setShowAddResource(false)}
           />
+        </Modal>
+      )}
+
+      {showStaff && authUser?.role === "admin" && (
+        <Modal
+          title="Manage Staff Accounts"
+          onClose={() => setShowStaff(false)}
+        >
+          <StaffManagement currentUser={authUser} />
         </Modal>
       )}
 

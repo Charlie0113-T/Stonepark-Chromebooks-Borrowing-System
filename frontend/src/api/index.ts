@@ -266,9 +266,7 @@ export async function requestAdminRemoval(
   return res.data.data;
 }
 
-export async function voteAdminRemoval(
-  email: string,
-): Promise<{
+export async function voteAdminRemoval(email: string): Promise<{
   status: "pending" | "removed";
   votes?: number;
   required?: number;
@@ -288,6 +286,49 @@ export async function voteAdminRemoval(
 
 export function getGoogleLoginUrl(): string {
   return `${API_BASE_URL}/api/auth/google`;
+}
+
+// ── Admin User Management ─────────────────────────────────────────────────────
+
+export interface ManagedUser {
+  id: string;
+  email: string;
+  name: string;
+  role: "admin" | "staff";
+  school_id?: string;
+}
+
+export async function fetchUsers(): Promise<ManagedUser[]> {
+  const res = await api.get<{ success: boolean; data: ManagedUser[] }>(
+    "/api/auth/users",
+  );
+  return res.data.data;
+}
+
+export async function adminCreateUser(payload: {
+  email: string;
+  password: string;
+  name?: string;
+  role?: "staff" | "admin";
+}): Promise<ManagedUser> {
+  const res = await api.post<{ success: boolean; data: ManagedUser }>(
+    "/api/auth/users",
+    payload,
+  );
+  return res.data.data;
+}
+
+export async function adminSetPassword(
+  email: string,
+  newPassword: string,
+): Promise<void> {
+  await api.patch(`/api/auth/users/${encodeURIComponent(email)}/password`, {
+    newPassword,
+  });
+}
+
+export async function adminDeleteUser(email: string): Promise<void> {
+  await api.delete(`/api/auth/users/${encodeURIComponent(email)}`);
 }
 
 export default api;

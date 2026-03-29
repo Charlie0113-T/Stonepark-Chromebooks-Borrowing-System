@@ -27,6 +27,8 @@ services:
         sync: false
       - key: ADMIN_USERS
         sync: false
+      - key: STAFF_USERS
+        sync: false
       - key: CORS_ORIGIN
         sync: false
       - key: FRONTEND_URL
