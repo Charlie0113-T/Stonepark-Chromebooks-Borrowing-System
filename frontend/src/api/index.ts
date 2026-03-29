@@ -328,6 +328,7 @@ export interface ManagedUser {
   name: string;
   role: "admin" | "staff";
   school_id?: string;
+  has_security_questions?: boolean | number;
 }
 
 export async function fetchUsers(): Promise<ManagedUser[]> {
