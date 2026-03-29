@@ -1489,14 +1489,14 @@ const usersDB = {
     await ensureInit();
     if (USE_POSTGRES) {
       const result = await pgPool.query(
-        "SELECT id, school_id, email, name, role FROM users ORDER BY role, email",
+        "SELECT id, school_id, email, name, role, (security_answer_1 IS NOT NULL) AS has_security_questions FROM users ORDER BY role, email",
       );
       return result.rows;
     }
     return (
       sqlite
         .prepare(
-          "SELECT id, school_id, email, name, role FROM users ORDER BY role, email",
+          "SELECT id, school_id, email, name, role, (security_answer_1 IS NOT NULL) AS has_security_questions FROM users ORDER BY role, email",
         )
         .all() || []
     );

@@ -13,6 +13,7 @@ interface UserRow {
   name: string;
   role: "admin" | "staff";
   school_id?: string;
+  has_security_questions?: boolean | number;
 }
 
 interface Props {
@@ -56,8 +57,10 @@ export default function StaffManagement({ currentUser }: Props) {
     setError(null);
     try {
       const data = await fetchUsers();
+      console.log("[StaffManagement] fetchUsers returned:", data);
       setUsers(data);
     } catch (err: any) {
+      console.error("[StaffManagement] fetchUsers failed:", err);
       setError(
         err?.response?.data?.message || "Failed to load users. Please retry.",
       );
@@ -403,6 +406,13 @@ export default function StaffManagement({ currentUser }: Props) {
           <div className="flex items-center justify-between">
             <div className="text-sm text-gray-500">
               {users.length} account{users.length !== 1 ? "s" : ""} total
+              {users.length > 0 &&
+                users.filter((u) => !u.has_security_questions).length > 0 && (
+                  <span className="ml-2 text-xs" style={{ color: "#856404" }}>
+                    ⚠️ {users.filter((u) => !u.has_security_questions).length}{" "}
+                    人未设安全问题
+                  </span>
+                )}
             </div>
             <button
               onClick={openCreate}
@@ -455,6 +465,19 @@ export default function StaffManagement({ currentUser }: Props) {
                           {user.name && (
                             <div className="text-xs text-gray-400 truncate">
                               {user.email}
+                            </div>
+                          )}
+                          {!user.has_security_questions && (
+                            <div
+                              className="text-[10px] mt-0.5 px-1.5 py-0.5 rounded inline-block"
+                              style={{
+                                backgroundColor: "#fff3cd",
+                                color: "#856404",
+                                border: "1px solid #ffc107",
+                              }}
+                              title="该用户还未设置安全问题，首次登录时会自动提示设置"
+                            >
+                              ⚠️ 未设安全问题
                             </div>
                           )}
                         </div>
@@ -527,6 +550,19 @@ export default function StaffManagement({ currentUser }: Props) {
                               {user.email}
                             </div>
                           )}
+                          {!user.has_security_questions && (
+                            <div
+                              className="text-[10px] mt-0.5 px-1.5 py-0.5 rounded inline-block"
+                              style={{
+                                backgroundColor: "#fff3cd",
+                                color: "#856404",
+                                border: "1px solid #ffc107",
+                              }}
+                              title="该用户还未设置安全问题，首次登录时会自动提示设置"
+                            >
+                              ⚠️ 未设安全问题
+                            </div>
+                          )}
                         </div>
                         <button
                           onClick={() => openReset(user)}
@@ -553,6 +589,11 @@ export default function StaffManagement({ currentUser }: Props) {
             Creating an account automatically whitelists the email. Share the
             password with the teacher securely (e.g. in person or via your
             school's internal messaging).
+          </p>
+          <p className="text-xs text-gray-400 pt-1">
+            💡 标有「⚠️
+            未设安全问题」的用户在首次登录时会自动弹出安全问题设置窗口，无需手动配置
+            env 变量。设置后即可使用「忘记密码」功能。
           </p>
         </>
       )}
