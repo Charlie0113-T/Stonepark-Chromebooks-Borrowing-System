@@ -1,6 +1,6 @@
-export type ResourceType = 'cabinet' | 'single';
-export type ResourceStatus = 'available' | 'partial' | 'full';
-export type BookingStatus = 'active' | 'returned' | 'cancelled';
+export type ResourceType = "cabinet" | "single";
+export type ResourceStatus = "available" | "partial" | "full";
+export type BookingStatus = "active" | "returned" | "cancelled";
 
 export interface Resource {
   id: string;
@@ -10,6 +10,7 @@ export interface Resource {
   classRoom: string;
   totalQuantity: number;
   description: string;
+  lastModifiedBy?: string | null;
   // Derived fields returned by API
   currentBooked: number;
   availableNow: number;

@@ -88,6 +88,7 @@ function rowToResource(row) {
     classRoom: row.class_room,
     totalQuantity: row.total_quantity,
     description: row.description,
+    lastModifiedBy: row.last_modified_by || null,
   };
 }
 
@@ -434,6 +435,9 @@ async function initPostgres() {
   await pgPool.query(
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_expires TIMESTAMPTZ",
   );
+  await pgPool.query(
+    "ALTER TABLE resources ADD COLUMN IF NOT EXISTS last_modified_by TEXT",
+  );
 
   const schoolCount = await pgPool.query(
     "SELECT COUNT(*)::int as cnt FROM schools",
@@ -575,6 +579,7 @@ function initSqlite() {
   `);
 
   ensureSqliteUserColumns();
+  ensureResourceColumns();
 }
 
 function ensureSqliteUserColumns() {
@@ -590,6 +595,18 @@ function ensureSqliteUserColumns() {
   ensureColumn("password_hash", "TEXT");
   ensureColumn("reset_token", "TEXT");
   ensureColumn("reset_expires", "TEXT");
+}
+
+function ensureResourceColumns() {
+  const columns = sqlite
+    .prepare("PRAGMA table_info(resources)")
+    .all()
+    .map((c) => c.name);
+  if (!columns.includes("last_modified_by")) {
+    sqlite
+      .prepare("ALTER TABLE resources ADD COLUMN last_modified_by TEXT")
+      .run();
+  }
 }
 
 async function seedSqliteIfEmpty() {
@@ -926,13 +943,14 @@ const resourcesDB = {
     if (USE_POSTGRES) {
       await pgPool.query(
         `UPDATE resources
-         SET name = $1, class_room = $2, total_quantity = $3, description = $4
-         WHERE id = $5`,
+         SET name = $1, class_room = $2, total_quantity = $3, description = $4, last_modified_by = $5
+         WHERE id = $6`,
         [
           updated.name,
           updated.classRoom,
           updated.totalQuantity,
           updated.description,
+          updated.lastModifiedBy || null,
           id,
         ],
       );
@@ -942,7 +960,7 @@ const resourcesDB = {
     sqlite
       .prepare(
         `UPDATE resources SET name = @name, class_room = @classRoom,
-       total_quantity = @totalQuantity, description = @description WHERE id = @id`,
+       total_quantity = @totalQuantity, description = @description, last_modified_by = @lastModifiedBy WHERE id = @id`,
       )
       .run({
         id,
@@ -950,6 +968,7 @@ const resourcesDB = {
         classRoom: updated.classRoom,
         totalQuantity: updated.totalQuantity,
         description: updated.description,
+        lastModifiedBy: updated.lastModifiedBy || null,
       });
     return this.getById(id);
   },

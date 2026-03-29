@@ -105,19 +105,13 @@ module.exports = function createAuthRouter() {
     res.json({ success: true, data: req.user });
   });
 
-  // POST /api/auth/signup – create account (whitelist only)
+  // POST /api/auth/signup – create account (open registration)
   router.post("/signup", authLimiter, async (req, res) => {
     const { email, password, name } = req.body;
     if (!email || !password) {
       return res
         .status(400)
         .json({ success: false, message: "email and password are required." });
-    }
-    if (!(await isAllowedEmail(email))) {
-      return res.status(403).json({
-        success: false,
-        message: "This email is not on the whitelist.",
-      });
     }
     if (password.length < 8) {
       return res.status(400).json({
@@ -145,6 +139,11 @@ module.exports = function createAuthRouter() {
       role,
       passwordHash,
     });
+
+    // Auto-whitelist the new user so they can log in afterwards
+    if (!(await whitelistDB.isWhitelisted(email))) {
+      await whitelistDB.add(email, "self-signup");
+    }
 
     const token = signToken({
       id: user.id,
@@ -389,13 +388,6 @@ module.exports = function createAuthRouter() {
           "Password reset email is not configured on the server (SMTP_HOST missing).",
       });
     }
-    if (!(await isAllowedEmail(email))) {
-      return res.status(403).json({
-        success: false,
-        message: "This email is not on the whitelist.",
-      });
-    }
-
     const user = await usersDB.getByEmail(email);
     if (user) {
       const token = randomUUID();
@@ -888,12 +880,10 @@ module.exports = function createAuthRouter() {
 
     const existing = await usersDB.getByEmail(email);
     if (existing) {
-      return res
-        .status(409)
-        .json({
-          success: false,
-          message: "An account with this email already exists.",
-        });
+      return res.status(409).json({
+        success: false,
+        message: "An account with this email already exists.",
+      });
     }
 
     // Auto-whitelist the new user so they can log in
@@ -973,12 +963,10 @@ module.exports = function createAuthRouter() {
           .json({ success: false, message: "email is required." });
       }
       if (req.user.email.toLowerCase() === targetEmail.toLowerCase()) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message: "You cannot delete your own account.",
-          });
+        return res.status(400).json({
+          success: false,
+          message: "You cannot delete your own account.",
+        });
       }
 
       const user = await usersDB.getByEmail(targetEmail);

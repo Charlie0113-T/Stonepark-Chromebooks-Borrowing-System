@@ -166,7 +166,7 @@ export default function LoginForm({ onLogin }: Props) {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@cloud.edu.pe.ca"
+              placeholder="your-email@example.com"
               className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
               style={{ borderColor: "#ccc" }}
               required
@@ -218,7 +218,7 @@ export default function LoginForm({ onLogin }: Props) {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@cloud.edu.pe.ca"
+              placeholder="your-email@example.com"
               className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
               style={{ borderColor: "#ccc" }}
               required
@@ -332,7 +332,7 @@ export default function LoginForm({ onLogin }: Props) {
               type="email"
               value={signupEmail}
               onChange={(e) => setSignupEmail(e.target.value)}
-              placeholder="you@cloud.edu.pe.ca"
+              placeholder="your-email@example.com"
               className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
               style={{ borderColor: "#ccc" }}
               required

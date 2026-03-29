@@ -7,49 +7,74 @@
  * DELETE /api/resources/:id    - delete a resource (blocked if active bookings)
  */
 
-const express = require('express');
-const { randomUUID } = require('node:crypto');
-const { resourcesDB, bookingsDB } = require('../db/database');
-const { enrichResourceDB, getBookedQuantityDB } = require('../models/booking');
-const { requireAuth, requireWhitelisted } = require('../middleware/auth');
+const express = require("express");
+const { randomUUID } = require("node:crypto");
+const { resourcesDB, bookingsDB } = require("../db/database");
+const { enrichResourceDB, getBookedQuantityDB } = require("../models/booking");
+const { requireAuth, requireWhitelisted } = require("../middleware/auth");
 
-const RESOURCE_TYPE = { CABINET: 'cabinet', SINGLE: 'single' };
+const RESOURCE_TYPE = { CABINET: "cabinet", SINGLE: "single" };
 
 module.exports = function createResourcesRouter() {
   const router = express.Router();
 
   // GET /api/resources
-  router.get('/', async (req, res) => {
+  router.get("/", async (req, res) => {
     const resources = await resourcesDB.getAll(req.query.schoolId);
-    const enriched = await Promise.all(resources.map((r) => enrichResourceDB(r)));
+    const enriched = await Promise.all(
+      resources.map((r) => enrichResourceDB(r)),
+    );
     res.json({ success: true, data: enriched });
   });
 
   // GET /api/resources/:id
-  router.get('/:id', async (req, res) => {
+  router.get("/:id", async (req, res) => {
     const resource = await resourcesDB.getById(req.params.id);
     if (!resource) {
-      return res.status(404).json({ success: false, message: 'Resource not found.' });
+      return res
+        .status(404)
+        .json({ success: false, message: "Resource not found." });
     }
     res.json({ success: true, data: await enrichResourceDB(resource) });
   });
 
   // POST /api/resources
-  router.post('/', requireAuth, requireWhitelisted, async (req, res) => {
-    const { type, name, classRoom, totalQuantity, description, schoolId } = req.body;
+  router.post("/", requireAuth, requireWhitelisted, async (req, res) => {
+    const { type, name, classRoom, totalQuantity, description, schoolId } =
+      req.body;
 
     if (!type || !name || !classRoom || totalQuantity == null) {
-      return res.status(400).json({ success: false, message: 'type, name, classRoom and totalQuantity are required.' });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "type, name, classRoom and totalQuantity are required.",
+        });
     }
     if (!Object.values(RESOURCE_TYPE).includes(type)) {
-      return res.status(400).json({ success: false, message: `type must be one of: ${Object.values(RESOURCE_TYPE).join(', ')}` });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: `type must be one of: ${Object.values(RESOURCE_TYPE).join(", ")}`,
+        });
     }
     const qty = parseInt(totalQuantity, 10);
     if (isNaN(qty) || qty < 1) {
-      return res.status(400).json({ success: false, message: 'totalQuantity must be a positive integer.' });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "totalQuantity must be a positive integer.",
+        });
     }
     if (type === RESOURCE_TYPE.SINGLE && qty !== 1) {
-      return res.status(400).json({ success: false, message: 'Single-device resources must have totalQuantity of 1.' });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "Single-device resources must have totalQuantity of 1.",
+        });
     }
 
     const resource = await resourcesDB.create({
@@ -58,17 +83,21 @@ module.exports = function createResourcesRouter() {
       name,
       classRoom,
       totalQuantity: qty,
-      description: description || '',
-      schoolId: schoolId || 'school-default',
+      description: description || "",
+      schoolId: schoolId || "school-default",
     });
-    res.status(201).json({ success: true, data: await enrichResourceDB(resource) });
+    res
+      .status(201)
+      .json({ success: true, data: await enrichResourceDB(resource) });
   });
 
   // PUT /api/resources/:id
-  router.put('/:id', requireAuth, requireWhitelisted, async (req, res) => {
+  router.put("/:id", requireAuth, requireWhitelisted, async (req, res) => {
     const resource = await resourcesDB.getById(req.params.id);
     if (!resource) {
-      return res.status(404).json({ success: false, message: 'Resource not found.' });
+      return res
+        .status(404)
+        .json({ success: false, message: "Resource not found." });
     }
     const { name, classRoom, description, totalQuantity } = req.body;
     const updates = {};
@@ -76,13 +105,29 @@ module.exports = function createResourcesRouter() {
     if (name != null) updates.name = name;
     if (classRoom != null) updates.classRoom = classRoom;
     if (description != null) updates.description = description;
+
+    // Track who made the edit
+    if (req.user && req.user.email) {
+      updates.lastModifiedBy = req.user.name || req.user.email;
+    }
+
     if (totalQuantity != null) {
       const qty = parseInt(totalQuantity, 10);
       if (isNaN(qty) || qty < 1) {
-        return res.status(400).json({ success: false, message: 'totalQuantity must be a positive integer.' });
+        return res
+          .status(400)
+          .json({
+            success: false,
+            message: "totalQuantity must be a positive integer.",
+          });
       }
       if (resource.type === RESOURCE_TYPE.SINGLE && qty !== 1) {
-        return res.status(400).json({ success: false, message: 'Single-device resources must have totalQuantity of 1.' });
+        return res
+          .status(400)
+          .json({
+            success: false,
+            message: "Single-device resources must have totalQuantity of 1.",
+          });
       }
       const now = new Date().toISOString();
       const currentBooked = await getBookedQuantityDB(resource.id, now, now);
@@ -100,16 +145,23 @@ module.exports = function createResourcesRouter() {
   });
 
   // DELETE /api/resources/:id
-  router.delete('/:id', requireAuth, requireWhitelisted, async (req, res) => {
+  router.delete("/:id", requireAuth, requireWhitelisted, async (req, res) => {
     const resource = await resourcesDB.getById(req.params.id);
     if (!resource) {
-      return res.status(404).json({ success: false, message: 'Resource not found.' });
+      return res
+        .status(404)
+        .json({ success: false, message: "Resource not found." });
     }
     if (await resourcesDB.hasActiveBookings(req.params.id)) {
-      return res.status(409).json({ success: false, message: 'Cannot delete resource with active bookings.' });
+      return res
+        .status(409)
+        .json({
+          success: false,
+          message: "Cannot delete resource with active bookings.",
+        });
     }
     await resourcesDB.delete(req.params.id);
-    res.json({ success: true, message: 'Resource deleted.' });
+    res.json({ success: true, message: "Resource deleted." });
   });
 
   return router;

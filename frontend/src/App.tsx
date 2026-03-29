@@ -577,6 +577,7 @@ function App() {
                     resource={resource}
                     onBook={setBookingResource}
                     onViewBookings={setHistoryResource}
+                    onResourceUpdated={loadData}
                   />
                 ))}
               </div>
