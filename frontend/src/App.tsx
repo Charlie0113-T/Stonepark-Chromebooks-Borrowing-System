@@ -22,6 +22,7 @@ import BookingForm from "./components/BookingForm";
 import BookingList from "./components/BookingList";
 import CalendarView from "./components/CalendarView";
 import LoginForm from "./components/LoginForm";
+import SecuritySetupModal from "./components/SecuritySetupModal";
 import Modal from "./components/Modal";
 import QRCodeGallery from "./components/QRCodeGallery";
 import ResourceCard from "./components/ResourceCard";
@@ -54,6 +55,7 @@ function App() {
     }
   });
   const [showLogin, setShowLogin] = useState(false);
+  const [showSecuritySetup, setShowSecuritySetup] = useState(false);
   const bypassAuth = !envTrue(process.env.REACT_APP_REQUIRE_AUTH);
 
   const [showWhitelist, setShowWhitelist] = useState(false);
@@ -133,6 +135,9 @@ function App() {
       .then((user) => {
         localStorage.setItem("auth_user", JSON.stringify(user));
         setAuthUser(user);
+        if (user.needsSecuritySetup) {
+          setShowSecuritySetup(true);
+        }
       })
       .catch(() => {
         // Token may be invalid/expired, clear it
@@ -172,6 +177,9 @@ function App() {
   const handleLogin = (_token: string, user: AuthUser) => {
     setAuthUser(user);
     setShowLogin(false);
+    if (user.needsSecuritySetup) {
+      setShowSecuritySetup(true);
+    }
   };
 
   const loadWhitelist = useCallback(async () => {
@@ -872,6 +880,17 @@ function App() {
             </div>
           </div>
         </Modal>
+      )}
+      {/* Security Questions Setup Modal */}
+      {showSecuritySetup && (
+        <SecuritySetupModal
+          onComplete={() => {
+            setShowSecuritySetup(false);
+            setAuthUser((prev) =>
+              prev ? { ...prev, needsSecuritySetup: false } : prev,
+            );
+          }}
+        />
       )}
     </div>
   );

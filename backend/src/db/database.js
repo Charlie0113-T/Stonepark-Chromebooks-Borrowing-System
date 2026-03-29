@@ -395,6 +395,9 @@ async function initPostgres() {
       password_hash TEXT,
       reset_token TEXT,
       reset_expires TIMESTAMPTZ,
+      security_answer_1 TEXT,
+      security_answer_2 TEXT,
+      security_answer_3 TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       FOREIGN KEY (school_id) REFERENCES schools(id)
     );
@@ -434,6 +437,15 @@ async function initPostgres() {
   );
   await pgPool.query(
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_expires TIMESTAMPTZ",
+  );
+  await pgPool.query(
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS security_answer_1 TEXT",
+  );
+  await pgPool.query(
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS security_answer_2 TEXT",
+  );
+  await pgPool.query(
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS security_answer_3 TEXT",
   );
   await pgPool.query(
     "ALTER TABLE resources ADD COLUMN IF NOT EXISTS last_modified_by TEXT",
@@ -547,6 +559,9 @@ function initSqlite() {
       password_hash TEXT,
       reset_token TEXT,
       reset_expires TEXT,
+      security_answer_1 TEXT,
+      security_answer_2 TEXT,
+      security_answer_3 TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       FOREIGN KEY (school_id) REFERENCES schools(id)
     );
@@ -595,6 +610,9 @@ function ensureSqliteUserColumns() {
   ensureColumn("password_hash", "TEXT");
   ensureColumn("reset_token", "TEXT");
   ensureColumn("reset_expires", "TEXT");
+  ensureColumn("security_answer_1", "TEXT");
+  ensureColumn("security_answer_2", "TEXT");
+  ensureColumn("security_answer_3", "TEXT");
 }
 
 function ensureResourceColumns() {
@@ -1291,12 +1309,87 @@ const usersDB = {
     return user;
   },
 
+  async verifySecurityAnswers(email, answer1, answer2, answer3) {
+    await ensureInit();
+    const normalized = (email || "").toLowerCase();
+    if (!normalized) return null;
+
+    let user;
+    if (USE_POSTGRES) {
+      const result = await pgPool.query(
+        "SELECT * FROM users WHERE LOWER(email) = $1",
+        [normalized],
+      );
+      user = result.rows[0] || null;
+    } else {
+      user =
+        sqlite
+          .prepare("SELECT * FROM users WHERE LOWER(email) = ?")
+          .get(normalized) || null;
+    }
+
+    if (!user) return null;
+    if (
+      !user.security_answer_1 ||
+      !user.security_answer_2 ||
+      !user.security_answer_3
+    ) {
+      return null; // user signed up before security questions were added
+    }
+
+    const [ok1, ok2, ok3] = await Promise.all([
+      bcrypt.compare(
+        (answer1 || "").trim().toLowerCase().replace(/\s+/g, " "),
+        user.security_answer_1,
+      ),
+      bcrypt.compare(
+        (answer2 || "").trim().toLowerCase().replace(/\s+/g, " "),
+        user.security_answer_2,
+      ),
+      bcrypt.compare(
+        (answer3 || "").trim().toLowerCase().replace(/\s+/g, " "),
+        user.security_answer_3,
+      ),
+    ]);
+
+    if (!ok1 || !ok2 || !ok3) return null;
+    return user;
+  },
+
+  async setupSecurityAnswers(email, answer1Hash, answer2Hash, answer3Hash) {
+    await ensureInit();
+    const normalized = (email || "").toLowerCase();
+    if (!normalized) return null;
+
+    if (USE_POSTGRES) {
+      await pgPool.query(
+        `UPDATE users
+         SET security_answer_1 = $1, security_answer_2 = $2, security_answer_3 = $3
+         WHERE LOWER(email) = $4`,
+        [answer1Hash, answer2Hash, answer3Hash, normalized],
+      );
+      return this.getByEmail(normalized);
+    }
+
+    sqlite
+      .prepare(
+        `UPDATE users
+         SET security_answer_1 = ?, security_answer_2 = ?, security_answer_3 = ?
+         WHERE LOWER(email) = ?`,
+      )
+      .run(answer1Hash, answer2Hash, answer3Hash, normalized);
+    return this.getByEmail(normalized);
+  },
+
   async createUser({
     email,
     name,
     role,
     passwordHash,
     schoolId = "school-default",
+    securityAnswer1 = null,
+    securityAnswer2 = null,
+    securityAnswer3 = null,
   }) {
     await ensureInit();
     const { randomUUID } = require("node:crypto");
@@ -1304,17 +1397,27 @@ const usersDB = {
 
     if (USE_POSTGRES) {
       await pgPool.query(
-        `INSERT INTO users (id, school_id, email, name, role, password_hash)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
-        [id, schoolId, email.toLowerCase(), name, role, passwordHash],
+        `INSERT INTO users (id, school_id, email, name, role, password_hash, security_answer_1, security_answer_2, security_answer_3)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [
+          id,
+          schoolId,
+          email.toLowerCase(),
+          name,
+          role,
+          passwordHash,
+          securityAnswer1,
+          securityAnswer2,
+          securityAnswer3,
+        ],
       );
       return this.getByEmail(email);
     }
 
     sqlite
       .prepare(
-        `INSERT INTO users (id, school_id, email, name, role, password_hash)
-       VALUES (@id, @schoolId, @email, @name, @role, @passwordHash)`,
+        `INSERT INTO users (id, school_id, email, name, role, password_hash, security_answer_1, security_answer_2, security_answer_3)
+     VALUES (@id, @schoolId, @email, @name, @role, @passwordHash, @securityAnswer1, @securityAnswer2, @securityAnswer3)`,
       )
       .run({
         id,
@@ -1323,6 +1426,9 @@ const usersDB = {
         name,
         role,
         passwordHash,
+        securityAnswer1,
+        securityAnswer2,
+        securityAnswer3,
       });
     return this.getByEmail(email);
   },

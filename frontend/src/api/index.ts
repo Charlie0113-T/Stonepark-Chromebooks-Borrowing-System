@@ -183,6 +183,7 @@ export interface AuthUser {
   name: string;
   role: "admin" | "staff";
   schoolId: string;
+  needsSecuritySetup?: boolean;
 }
 
 export async function loginWithEmail(
@@ -200,16 +201,39 @@ export async function signupWithEmail(
   email: string,
   password: string,
   name?: string,
+  securityAnswers?: { food: string; book: string; color: string },
 ): Promise<{ user: AuthUser; token: string }> {
   const res = await api.post<{
     success: boolean;
     data: { user: AuthUser; token: string };
-  }>("/api/auth/signup", { email, password, name });
+  }>("/api/auth/signup", { email, password, name, securityAnswers });
   return res.data.data;
 }
 
-export async function requestPasswordReset(email: string): Promise<void> {
-  await api.post("/api/auth/forgot-password", { email });
+/**
+ * Verify security answers and get a password-reset token.
+ * Returns the reset token directly (no email sent).
+ */
+export async function verifySecurityAnswers(
+  email: string,
+  food: string,
+  book: string,
+  color: string,
+): Promise<{ token: string }> {
+  const res = await api.post<{
+    success: boolean;
+    data: { token: string };
+  }>("/api/auth/forgot-password", { email, food, book, color });
+  return res.data.data;
+}
+
+/** Set security question answers for an existing account (requires auth). */
+export async function setupSecurityQuestions(
+  food: string,
+  book: string,
+  color: string,
+): Promise<void> {
+  await api.post("/api/auth/setup-security-questions", { food, book, color });
 }
 
 export async function resetPassword(
@@ -286,6 +310,14 @@ export async function voteAdminRemoval(email: string): Promise<{
 
 export function getGoogleLoginUrl(): string {
   return `${API_BASE_URL}/api/auth/google`;
+}
+
+/** Public: apply to be added to the whitelist (no auth required). */
+export async function applyForWhitelist(
+  email: string,
+  message?: string,
+): Promise<void> {
+  await api.post("/api/auth/whitelist/apply", { email, message });
 }
 
 // ── Admin User Management ─────────────────────────────────────────────────────

@@ -97,17 +97,60 @@ const authApiLimiter = rateLimit({
 module.exports = function createAuthRouter() {
   const router = express.Router();
 
+  // Normalize security answers: trim, lowercase, collapse multiple spaces
+  const normalizeAnswer = (str) =>
+    (str || "").trim().toLowerCase().replace(/\s+/g, " ");
+
   // Apply general rate limit to all auth endpoints
   router.use(authApiLimiter);
 
   // GET /api/auth/me
-  router.get("/me", requireAuth, (req, res) => {
-    res.json({ success: true, data: req.user });
+  router.get("/me", requireAuth, async (req, res) => {
+    if (AUTH_BYPASS) {
+      return res.json({ success: true, data: req.user });
+    }
+    const dbUser = await usersDB.getByEmail(req.user.email);
+    res.json({
+      success: true,
+      data: {
+        ...req.user,
+        needsSecuritySetup: dbUser ? !dbUser.security_answer_1 : false,
+      },
+    });
   });
 
-  // POST /api/auth/signup – create account (open registration)
+  // POST /api/auth/setup-security-questions – set security answers for existing users
+  router.post("/setup-security-questions", requireAuth, async (req, res) => {
+    const { food, book, color } = req.body;
+    if (!food || !book || !color) {
+      return res.status(400).json({
+        success: false,
+        message: "All three security answers are required.",
+      });
+    }
+
+    const [answer1Hash, answer2Hash, answer3Hash] = await Promise.all([
+      bcrypt.hash(normalizeAnswer(food), 10),
+      bcrypt.hash(normalizeAnswer(book), 10),
+      bcrypt.hash(normalizeAnswer(color), 10),
+    ]);
+
+    await usersDB.setupSecurityAnswers(
+      req.user.email,
+      answer1Hash,
+      answer2Hash,
+      answer3Hash,
+    );
+
+    res.json({
+      success: true,
+      message: "Security questions set up successfully.",
+    });
+  });
+
+  // POST /api/auth/signup – create account (whitelist-gated registration)
   router.post("/signup", authLimiter, async (req, res) => {
-    const { email, password, name } = req.body;
+    const { email, password, name, securityAnswers } = req.body;
     if (!email || !password) {
       return res
         .status(400)
@@ -120,6 +163,26 @@ module.exports = function createAuthRouter() {
       });
     }
 
+    // Enforce whitelist: only whitelisted emails may create an account
+    if (!(await isAllowedEmail(email))) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "This email is not on the whitelist. Please ask an admin to add you, or apply for access.",
+      });
+    }
+
+    // Require all 3 security answers
+    const food = ((securityAnswers && securityAnswers.food) || "").trim();
+    const book = ((securityAnswers && securityAnswers.book) || "").trim();
+    const color = ((securityAnswers && securityAnswers.color) || "").trim();
+    if (!food || !book || !color) {
+      return res.status(400).json({
+        success: false,
+        message: "All three security question answers are required.",
+      });
+    }
+
     const existing = await usersDB.getByEmail(email);
     if (existing) {
       return res.status(409).json({
@@ -129,6 +192,13 @@ module.exports = function createAuthRouter() {
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
+    const [securityAnswer1, securityAnswer2, securityAnswer3] =
+      await Promise.all([
+        bcrypt.hash(normalizeAnswer(food), 10),
+        bcrypt.hash(normalizeAnswer(book), 10),
+        bcrypt.hash(normalizeAnswer(color), 10),
+      ]);
+
     const displayName = name && name.trim() ? name.trim() : email.split("@")[0];
     const adminSeedEmails = getAdminSeedEmails();
     const normalizedEmail = email.toLowerCase();
@@ -138,12 +208,10 @@ module.exports = function createAuthRouter() {
       name: displayName,
       role,
       passwordHash,
+      securityAnswer1,
+      securityAnswer2,
+      securityAnswer3,
     });
-
-    // Auto-whitelist the new user so they can log in afterwards
-    if (!(await whitelistDB.isWhitelisted(email))) {
-      await whitelistDB.add(email, "self-signup");
-    }
 
     const token = signToken({
       id: user.id,
@@ -225,6 +293,7 @@ module.exports = function createAuthRouter() {
           name: user.name,
           role,
           schoolId: user.school_id || "school-default",
+          needsSecuritySetup: !user.security_answer_1,
         },
         token,
       },
@@ -373,54 +442,35 @@ module.exports = function createAuthRouter() {
     });
   });
 
-  // POST /api/auth/forgot-password – request reset token
+  // POST /api/auth/forgot-password – verify security answers and return a reset token
   router.post("/forgot-password", authLimiter, async (req, res) => {
-    const { email } = req.body;
-    if (!email) {
-      return res
-        .status(400)
-        .json({ success: false, message: "email is required." });
+    const { email, food, book, color } = req.body;
+    if (!email || !food || !book || !color) {
+      return res.status(400).json({
+        success: false,
+        message: "email and all three security answers are required.",
+      });
     }
-    if (!process.env.SMTP_HOST) {
-      return res.status(503).json({
+
+    const user = await usersDB.verifySecurityAnswers(email, food, book, color);
+    if (!user) {
+      return res.status(400).json({
         success: false,
         message:
-          "Password reset email is not configured on the server (SMTP_HOST missing).",
+          "Incorrect answers. Please check your responses and try again.",
       });
     }
-    const user = await usersDB.getByEmail(email);
-    if (user) {
-      const token = randomUUID();
-      const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
-      await usersDB.setResetToken(email, token, expiresAt);
 
-      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
-      const body = [
-        "You requested a password reset for Stonepark Chromebook Manager.",
-        "",
-        `Reset code: ${token}`,
-        `Reset page: ${frontendUrl}`,
-        "",
-        "If you did not request this, please ignore this email.",
-      ].join("\n");
-
-      const result = await sendEmail({
-        to: email,
-        subject: "Password reset request",
-        text: body,
-      });
-      if (!result || !result.ok) {
-        return res.status(502).json({
-          success: false,
-          message:
-            "Password reset email failed to send. Please contact admin to check SMTP settings.",
-        });
-      }
-    }
+    // Generate a short-lived reset token (30 minutes)
+    const token = randomUUID();
+    const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+    await usersDB.setResetToken(email, token, expiresAt);
 
     res.json({
       success: true,
-      message: "If the email exists, a reset code was sent.",
+      data: { token },
+      message:
+        "Security answers verified. Use the token to reset your password.",
     });
   });
 

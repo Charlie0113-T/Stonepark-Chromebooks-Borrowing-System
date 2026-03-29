@@ -117,12 +117,10 @@ async function notifyBookingCreated(booking, resource) {
     `Quantity: ${booking.quantity}`,
     `From:  ${new Date(booking.startTime).toLocaleString()}`,
     `Until: ${new Date(booking.endTime).toLocaleString()}`,
-    booking.notes ? `Notes: ${booking.notes}` : "",
+    ...(booking.notes ? [`Notes: ${booking.notes}`] : []),
     ``,
     `Booking ID: ${booking.id}`,
-  ]
-    .filter((l) => l !== "")
-    .join("\n");
+  ].join("\n");
 
   await Promise.all([
     sendEmail({ to: process.env.NOTIFY_TO || "", subject, text: body }),

@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import {
+  applyForWhitelist,
   AuthUser,
   loginWithEmail,
-  requestPasswordReset,
+  verifySecurityAnswers,
   resetPassword,
   signupWithEmail,
 } from "../api";
@@ -16,13 +17,24 @@ export default function LoginForm({ onLogin }: Props) {
   const [password, setPassword] = useState("");
   const [resetToken, setResetToken] = useState("");
   const [newPassword, setNewPassword] = useState("");
-  const [mode, setMode] = useState<"login" | "forgot" | "reset" | "signup">(
-    "login",
-  );
+  const [mode, setMode] = useState<
+    "login" | "signup" | "apply" | "forgot" | "reset"
+  >("login");
   const [signupEmail, setSignupEmail] = useState("");
   const [signupName, setSignupName] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
   const [signupConfirm, setSignupConfirm] = useState("");
+  // Security question answers for signup
+  const [signupFood, setSignupFood] = useState("");
+  const [signupBook, setSignupBook] = useState("");
+  const [signupColor, setSignupColor] = useState("");
+  // Security question answers for forgot password
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotFood, setForgotFood] = useState("");
+  const [forgotBook, setForgotBook] = useState("");
+  const [forgotColor, setForgotColor] = useState("");
+  const [applyEmail, setApplyEmail] = useState("");
+  const [applyMessage, setApplyMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -49,19 +61,32 @@ export default function LoginForm({ onLogin }: Props) {
 
   const handleForgot = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email) {
+    if (!forgotEmail) {
       setError("Email is required.");
+      return;
+    }
+    if (!forgotFood.trim() || !forgotBook.trim() || !forgotColor.trim()) {
+      setError("Please answer all three security questions.");
       return;
     }
     setLoading(true);
     setError(null);
     setMessage(null);
     try {
-      await requestPasswordReset(email);
-      setMessage("If this email is allowed, a reset code was sent.");
+      const { token } = await verifySecurityAnswers(
+        forgotEmail,
+        forgotFood.trim(),
+        forgotBook.trim(),
+        forgotColor.trim(),
+      );
+      setResetToken(token);
+      setMessage("Answers verified! Please set your new password below.");
       setMode("reset");
-    } catch {
-      setError("Failed to send reset code. Please try again.");
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.message ||
+        "Incorrect answers. Please check your responses and try again.";
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -70,7 +95,7 @@ export default function LoginForm({ onLogin }: Props) {
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!resetToken || !newPassword) {
-      setError("Reset code and new password are required.");
+      setError("Reset token and new password are required.");
       return;
     }
     if (newPassword.length < 8) {
@@ -88,7 +113,7 @@ export default function LoginForm({ onLogin }: Props) {
       setResetToken("");
       setNewPassword("");
     } catch {
-      setError("Reset failed. Please check your code and try again.");
+      setError("Reset failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -108,6 +133,10 @@ export default function LoginForm({ onLogin }: Props) {
       setError("Passwords do not match.");
       return;
     }
+    if (!signupFood.trim() || !signupBook.trim() || !signupColor.trim()) {
+      setError("Please answer all three security questions.");
+      return;
+    }
     setLoading(true);
     setError(null);
     setMessage(null);
@@ -116,14 +145,26 @@ export default function LoginForm({ onLogin }: Props) {
         signupEmail,
         signupPassword,
         signupName || undefined,
+        {
+          food: signupFood.trim(),
+          book: signupBook.trim(),
+          color: signupColor.trim(),
+        },
       );
       localStorage.setItem("auth_token", token);
       localStorage.setItem("auth_user", JSON.stringify(user));
       onLogin(token, user);
     } catch (err: any) {
+      const status = err?.response?.status;
       const msg =
         err?.response?.data?.message || "Sign up failed. Please try again.";
-      setError(msg);
+      if (status === 403) {
+        setApplyEmail(signupEmail);
+        setError(msg + " You can apply for access below.");
+        setMode("apply");
+      } else {
+        setError(msg);
+      }
     } finally {
       setLoading(false);
     }
@@ -210,15 +251,60 @@ export default function LoginForm({ onLogin }: Props) {
 
       {mode === "forgot" && (
         <form onSubmit={handleForgot} className="space-y-4">
+          <p className="text-sm text-gray-500 mb-2">
+            Answer your security questions to reset your password.
+          </p>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Email
             </label>
             <input
               type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={forgotEmail}
+              onChange={(e) => setForgotEmail(e.target.value)}
               placeholder="your-email@example.com"
+              className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+              style={{ borderColor: "#ccc" }}
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              What's your favourite food?
+            </label>
+            <input
+              type="text"
+              value={forgotFood}
+              onChange={(e) => setForgotFood(e.target.value)}
+              placeholder="Your answer"
+              className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+              style={{ borderColor: "#ccc" }}
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              What's your favourite book?
+            </label>
+            <input
+              type="text"
+              value={forgotBook}
+              onChange={(e) => setForgotBook(e.target.value)}
+              placeholder="Your answer"
+              className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+              style={{ borderColor: "#ccc" }}
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              What's your favourite color?
+            </label>
+            <input
+              type="text"
+              value={forgotColor}
+              onChange={(e) => setForgotColor(e.target.value)}
+              placeholder="Your answer"
               className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
               style={{ borderColor: "#ccc" }}
               required
@@ -234,7 +320,7 @@ export default function LoginForm({ onLogin }: Props) {
               opacity: loading ? 0.7 : 1,
             }}
           >
-            {loading ? "Sending…" : "Send Reset Code"}
+            {loading ? "Verifying…" : "Verify & Reset Password"}
           </button>
           <button
             type="button"
@@ -248,20 +334,6 @@ export default function LoginForm({ onLogin }: Props) {
 
       {mode === "reset" && (
         <form onSubmit={handleReset} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Reset Code
-            </label>
-            <input
-              type="text"
-              value={resetToken}
-              onChange={(e) => setResetToken(e.target.value)}
-              placeholder="Paste the reset code"
-              className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
-              style={{ borderColor: "#ccc" }}
-              required
-            />
-          </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               New Password
@@ -298,16 +370,19 @@ export default function LoginForm({ onLogin }: Props) {
         </form>
       )}
 
-      {mode !== "signup" && (
-        <button
-          type="button"
-          onClick={() => setMode("signup")}
-          className="mt-3 w-full py-2 rounded border text-sm font-medium transition-colors hover:bg-gray-50"
-          style={{ borderColor: "#333", color: "#333" }}
-        >
-          Sign Up
-        </button>
-      )}
+      {mode !== "signup" &&
+        mode !== "apply" &&
+        mode !== "forgot" &&
+        mode !== "reset" && (
+          <button
+            type="button"
+            onClick={() => setMode("signup")}
+            className="mt-3 w-full py-2 rounded border text-sm font-medium transition-colors hover:bg-gray-50"
+            style={{ borderColor: "#333", color: "#333" }}
+          >
+            Sign Up
+          </button>
+        )}
 
       {mode === "signup" && (
         <form onSubmit={handleSignup} className="mt-4 space-y-4">
@@ -366,6 +441,70 @@ export default function LoginForm({ onLogin }: Props) {
               required
             />
           </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              What's your favourite food?{" "}
+              <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={signupFood}
+              onChange={(e) => setSignupFood(e.target.value)}
+              placeholder="Used for password recovery"
+              className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+              style={{ borderColor: "#ccc" }}
+              required
+            />
+            <p className="text-xs text-gray-400 mt-0.5">
+              🔒 Encrypted — used only for password recovery
+            </p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              What's your favourite book?{" "}
+              <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={signupBook}
+              onChange={(e) => setSignupBook(e.target.value)}
+              placeholder="Used for password recovery"
+              className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+              style={{ borderColor: "#ccc" }}
+              required
+            />
+            <p className="text-xs text-gray-400 mt-0.5">
+              🔒 Encrypted — used only for password recovery
+            </p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              What's your favourite color?{" "}
+              <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={signupColor}
+              onChange={(e) => setSignupColor(e.target.value)}
+              placeholder="Used for password recovery"
+              className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+              style={{ borderColor: "#ccc" }}
+              required
+            />
+            <p className="text-xs text-gray-400 mt-0.5">
+              🔒 Encrypted — used only for password recovery
+            </p>
+          </div>
+          <div
+            className="rounded px-3 py-2 text-xs text-gray-600"
+            style={{ backgroundColor: "#fff3cd", border: "1px solid #ffc107" }}
+          >
+            ⚠️ Remember your answers carefully. Spelling and spacing matter, but
+            capitalisation does not (e.g. "blue" = "Blue" = "BLUE"). These
+            answers are <strong>encrypted</strong> and only used to verify your
+            identity if you forget your password — they are never stored in
+            plain text.
+          </div>
           <button
             type="submit"
             disabled={loading}
@@ -377,6 +516,87 @@ export default function LoginForm({ onLogin }: Props) {
             }}
           >
             {loading ? "Signing up…" : "Create Account"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("login")}
+            className="w-full text-xs text-gray-500 underline"
+          >
+            Back to Sign In
+          </button>
+        </form>
+      )}
+
+      {mode === "apply" && (
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (!applyEmail) {
+              setError("Email is required.");
+              return;
+            }
+            setLoading(true);
+            setError(null);
+            setMessage(null);
+            try {
+              await applyForWhitelist(applyEmail, applyMessage || undefined);
+              setMessage(
+                "Your application has been submitted! An admin will review it. You'll receive an email once approved.",
+              );
+              setApplyMessage("");
+            } catch (err: any) {
+              const msg =
+                err?.response?.data?.message ||
+                "Failed to submit application. Please try again.";
+              setError(msg);
+            } finally {
+              setLoading(false);
+            }
+          }}
+          className="space-y-4"
+        >
+          <p className="text-sm text-gray-600">
+            Your email is not yet on the whitelist. Submit an application and an
+            admin will review it.
+          </p>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Email
+            </label>
+            <input
+              type="email"
+              value={applyEmail}
+              onChange={(e) => setApplyEmail(e.target.value)}
+              placeholder="your-email@example.com"
+              className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+              style={{ borderColor: "#ccc" }}
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Message to admin (optional)
+            </label>
+            <textarea
+              value={applyMessage}
+              onChange={(e) => setApplyMessage(e.target.value)}
+              placeholder="e.g. I am a new staff member in Year 7"
+              className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+              style={{ borderColor: "#ccc" }}
+              rows={3}
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-2 rounded font-medium text-sm transition-opacity"
+            style={{
+              backgroundColor: "#333333",
+              color: "#fff",
+              opacity: loading ? 0.7 : 1,
+            }}
+          >
+            {loading ? "Submitting…" : "Apply for Access"}
           </button>
           <button
             type="button"
