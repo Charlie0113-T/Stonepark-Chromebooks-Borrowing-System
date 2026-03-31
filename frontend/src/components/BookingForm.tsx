@@ -117,7 +117,7 @@ const BookingForm: React.FC<BookingFormProps> = ({
           required
           value={borrowerClass}
           onChange={(e) => setBorrowerClass(e.target.value)}
-          placeholder="e.g. Class 10A"
+          placeholder="e.g. Year 7A"
           className={inputClass}
           style={{ borderColor: "#333333" }}
         />
