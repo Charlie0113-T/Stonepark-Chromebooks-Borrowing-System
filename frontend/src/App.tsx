@@ -76,16 +76,7 @@ function App() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [showAddResource, setShowAddResource] = useState(false);
   const [bookingRefreshKey, setBookingRefreshKey] = useState(0);
-  // Capture QR scan param immediately (before URL gets cleaned) so we survive the
-  // initial render when resources[] is still empty.
-  const [pendingScanId, setPendingScanId] = useState<string | null>(() => {
-    const p = new URLSearchParams(window.location.search);
-    if (p.get("scan") === "resource" && p.get("id")) {
-      window.history.replaceState({}, "", window.location.pathname);
-      return p.get("id");
-    }
-    return null;
-  });
+
   const successTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
@@ -156,18 +147,6 @@ function App() {
         localStorage.removeItem("auth_user");
       });
   }, []);
-
-  // Handle QR scan: once resources have loaded, open the booking form for the
-  // scanned resource.  pendingScanId was captured synchronously at startup so
-  // it survives the initial render where resources[] is still empty.
-  useEffect(() => {
-    if (!pendingScanId || resources.length === 0) return;
-    const target = resources.find((r) => r.id === pendingScanId);
-    if (target) {
-      setPendingScanId(null);
-      setBookingResource(target);
-    }
-  }, [resources, pendingScanId]);
 
   const handleBookSuccess = async () => {
     setBookingResource(null);

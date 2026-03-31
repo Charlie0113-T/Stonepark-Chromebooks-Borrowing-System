@@ -633,6 +633,28 @@ async function seedSqliteIfEmpty() {
   }
 }
 
+async function cleanRemovedSeedBookings() {
+  const removed = [
+    "Sarah Kim",
+    "Mr. Patel",
+    "Alice Chen",
+    "Mrs. Williams",
+    "Jake Thompson",
+  ];
+  if (USE_POSTGRES) {
+    const placeholders = removed.map((_, i) => `$${i + 1}`).join(", ");
+    await pgPool.query(
+      `DELETE FROM bookings WHERE borrower IN (${placeholders})`,
+      removed,
+    );
+    return;
+  }
+  const placeholders = removed.map(() => "?").join(", ");
+  sqlite
+    .prepare(`DELETE FROM bookings WHERE borrower IN (${placeholders})`)
+    .run(...removed);
+}
+
 async function ensureInit() {
   if (initPromise) return initPromise;
 
@@ -643,6 +665,7 @@ async function ensureInit() {
       await ensureAdminUsers();
       await ensureStaffUsers();
       await ensureWhitelistSeeds();
+      await cleanRemovedSeedBookings();
       return;
     }
 
@@ -652,6 +675,7 @@ async function ensureInit() {
     await ensureAdminUsers();
     await ensureStaffUsers();
     await ensureWhitelistSeeds();
+    await cleanRemovedSeedBookings();
   })();
 
   return initPromise;

@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useState } from "react";
 import { QRCodeCanvas } from "qrcode.react";
 import { Resource } from "../types";
+import { API_BASE_URL } from "../api";
 
 interface Props {
   resources: Resource[];
@@ -63,7 +64,8 @@ export default function QRCodeGallery({ resources }: Props) {
             Cabinet QR Codes
           </h2>
           <p className="text-sm text-gray-500">
-            Each cabinet has a stable QR code for printing.
+            Scan to return borrowed Chromebooks. Uses the internal ID — renaming
+            won't break the QR code.
           </p>
         </div>
         <span className="text-xs text-gray-500">
@@ -88,7 +90,7 @@ export default function QRCodeGallery({ resources }: Props) {
                 <div className="text-xs text-gray-500">{cabinet.classRoom}</div>
               </div>
               <QRCodeCanvas
-                value={`${window.location.origin}?scan=resource&id=${cabinet.id}`}
+                value={`${API_BASE_URL}/api/resources/${cabinet.id}/return-via-qr`}
                 size={180}
                 bgColor="#ffffff"
                 fgColor="#333333"
@@ -111,8 +113,8 @@ export default function QRCodeGallery({ resources }: Props) {
       )}
 
       <p className="text-xs text-gray-500">
-        ℹ️ QR codes use the internal ID — renaming a cabinet won't change its QR
-        code.
+        ℹ️ QR codes link to the return page. Admin credentials are required to
+        confirm a return.
       </p>
 
       <div className="flex justify-end">
