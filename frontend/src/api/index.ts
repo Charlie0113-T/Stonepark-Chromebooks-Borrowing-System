@@ -4,6 +4,7 @@ import {
   CreateBookingPayload,
   CreateResourcePayload,
   RemovalRequest,
+  ResourceHistoryEntry,
   Resource,
   Stats,
   WhitelistEntry,
@@ -64,6 +65,15 @@ export async function fetchResources(schoolId?: string): Promise<Resource[]> {
 export async function fetchResource(id: string): Promise<Resource> {
   const res = await api.get<{ success: boolean; data: Resource }>(
     `/api/resources/${id}`,
+  );
+  return res.data.data;
+}
+
+export async function fetchResourceHistory(
+  resourceId: string,
+): Promise<ResourceHistoryEntry[]> {
+  const res = await api.get<{ success: boolean; data: ResourceHistoryEntry[] }>(
+    `/api/resources/${resourceId}/history`,
   );
   return res.data.data;
 }

@@ -107,6 +107,19 @@ function rowToBooking(row) {
   };
 }
 
+function rowToResourceHistory(row) {
+  return {
+    id: row.id,
+    resourceId: row.resource_id,
+    action: row.action,
+    field: row.field,
+    oldValue: row.old_value,
+    newValue: row.new_value,
+    changedBy: row.changed_by,
+    createdAt: row.created_at,
+  };
+}
+
 function buildSeedResources() {
   const seedResources = [
     {
@@ -334,6 +347,18 @@ async function initPostgres() {
       FOREIGN KEY (resource_id) REFERENCES resources(id)
     );
 
+    CREATE TABLE IF NOT EXISTS resource_history (
+      id TEXT PRIMARY KEY,
+      resource_id TEXT NOT NULL,
+      action TEXT NOT NULL,
+      field TEXT NOT NULL,
+      old_value TEXT NOT NULL DEFAULT '',
+      new_value TEXT NOT NULL DEFAULT '',
+      changed_by TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      FOREIGN KEY (resource_id) REFERENCES resources(id)
+    );
+
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
       school_id TEXT NOT NULL DEFAULT 'school-default',
@@ -494,6 +519,18 @@ function initSqlite() {
       actual_return_time TEXT,
       status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'returned', 'cancelled')),
       notes TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (resource_id) REFERENCES resources(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS resource_history (
+      id TEXT PRIMARY KEY,
+      resource_id TEXT NOT NULL,
+      action TEXT NOT NULL,
+      field TEXT NOT NULL,
+      old_value TEXT NOT NULL DEFAULT '',
+      new_value TEXT NOT NULL DEFAULT '',
+      changed_by TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       FOREIGN KEY (resource_id) REFERENCES resources(id)
     );
@@ -1197,6 +1234,70 @@ const bookingsDB = {
   },
 };
 
+const resourceHistoryDB = {
+  async getAllByResourceId(resourceId, limit = 100) {
+    await ensureInit();
+    const safeLimit = Math.max(1, Math.min(parseInt(limit, 10) || 100, 500));
+
+    if (USE_POSTGRES) {
+      const result = await pgPool.query(
+        `SELECT * FROM resource_history
+         WHERE resource_id = $1
+         ORDER BY created_at DESC
+         LIMIT $2`,
+        [resourceId, safeLimit],
+      );
+      return result.rows.map(rowToResourceHistory);
+    }
+
+    return sqlite
+      .prepare(
+        `SELECT * FROM resource_history
+         WHERE resource_id = ?
+         ORDER BY created_at DESC
+         LIMIT ?`,
+      )
+      .all(resourceId, safeLimit)
+      .map(rowToResourceHistory);
+  },
+
+  async create(entry) {
+    await ensureInit();
+
+    if (USE_POSTGRES) {
+      await pgPool.query(
+        `INSERT INTO resource_history (id, resource_id, action, field, old_value, new_value, changed_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          entry.id,
+          entry.resourceId,
+          entry.action,
+          entry.field,
+          entry.oldValue || "",
+          entry.newValue || "",
+          entry.changedBy || null,
+        ],
+      );
+      return;
+    }
+
+    sqlite
+      .prepare(
+        `INSERT INTO resource_history (id, resource_id, action, field, old_value, new_value, changed_by)
+         VALUES (@id, @resourceId, @action, @field, @oldValue, @newValue, @changedBy)`,
+      )
+      .run({
+        id: entry.id,
+        resourceId: entry.resourceId,
+        action: entry.action,
+        field: entry.field,
+        oldValue: entry.oldValue || "",
+        newValue: entry.newValue || "",
+        changedBy: entry.changedBy || null,
+      });
+  },
+};
+
 const usersDB = {
   async getByEmail(email) {
     await ensureInit();
@@ -1890,6 +1991,7 @@ ensureInit()
 module.exports = {
   resourcesDB,
   bookingsDB,
+  resourceHistoryDB,
   usersDB,
   whitelistDB,
   whitelistRemovalDB,

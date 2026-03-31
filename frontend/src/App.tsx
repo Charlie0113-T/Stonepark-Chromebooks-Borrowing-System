@@ -659,7 +659,7 @@ function App() {
 
       {/* History Modal */}
       {historyResource && (
-        <Modal title="Booking History" onClose={() => setHistoryResource(null)}>
+        <Modal title="History" onClose={() => setHistoryResource(null)}>
           <BookingList
             resource={historyResource}
             onClose={() => setHistoryResource(null)}

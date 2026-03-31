@@ -18,6 +18,8 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
 }) => {
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState(resource.name);
+  const [editingDescription, setEditingDescription] = useState(false);
+  const [editDescription, setEditDescription] = useState(resource.description);
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
@@ -64,9 +66,45 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
     setEditError(null);
   };
 
+  const handleSaveDescription = async () => {
+    const trimmed = editDescription.trim();
+    if (trimmed === resource.description) {
+      setEditingDescription(false);
+      setEditError(null);
+      return;
+    }
+
+    setSaving(true);
+    setEditError(null);
+    try {
+      await updateResource(resource.id, { description: trimmed });
+      setEditingDescription(false);
+      if (onResourceUpdated) onResourceUpdated();
+    } catch (err: any) {
+      setEditError(
+        err?.response?.data?.message || "Failed to update description.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancelDescription = () => {
+    setEditDescription(resource.description);
+    setEditingDescription(false);
+    setEditError(null);
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") handleSave();
     if (e.key === "Escape") handleCancel();
+  };
+
+  const handleDescriptionKeyDown = (e: React.KeyboardEvent) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+      handleSaveDescription();
+    }
+    if (e.key === "Escape") handleCancelDescription();
   };
 
   return (
@@ -152,12 +190,66 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
         <span className="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-700 font-medium capitalize">
           {resource.type === "cabinet" ? "⚡ Cabinet" : "💻 Single"}
         </span>
-        {resource.description && (
-          <span className="text-xs text-gray-500 truncate">
-            {resource.description}
-          </span>
+      </div>
+
+      <div className="space-y-1">
+        {editingDescription ? (
+          <div className="space-y-1">
+            <textarea
+              value={editDescription}
+              onChange={(e) => setEditDescription(e.target.value)}
+              onKeyDown={handleDescriptionKeyDown}
+              rows={2}
+              className="w-full border rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-gray-400"
+              style={{ borderColor: "#ccc" }}
+              autoFocus
+              disabled={saving}
+              placeholder="Add description"
+            />
+            <div className="flex gap-1">
+              <button
+                onClick={handleSaveDescription}
+                disabled={saving}
+                className="px-2 py-0.5 rounded text-xs font-medium"
+                style={{
+                  backgroundColor: "#333",
+                  color: "#fff",
+                  opacity: saving ? 0.7 : 1,
+                }}
+              >
+                {saving ? "Saving…" : "Save"}
+              </button>
+              <button
+                onClick={handleCancelDescription}
+                disabled={saving}
+                className="px-2 py-0.5 rounded border text-xs"
+                style={{ borderColor: "#ccc", color: "#555" }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="group/desc flex items-start gap-1">
+            <p className="text-xs text-gray-500 break-words flex-1">
+              {resource.description || "No description"}
+            </p>
+            <button
+              onClick={() => {
+                setEditDescription(resource.description);
+                setEditingDescription(true);
+                setEditError(null);
+              }}
+              className="opacity-0 group-hover/desc:opacity-100 transition-opacity text-gray-400 hover:text-gray-600 text-xs"
+              title="Edit description"
+            >
+              ✏️
+            </button>
+          </div>
         )}
       </div>
+
+      {editError && <div className="text-xs text-red-500">{editError}</div>}
 
       {/* Overdue indicator */}
       {resource.overdueBookings > 0 && (

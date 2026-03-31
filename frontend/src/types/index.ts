@@ -32,6 +32,17 @@ export interface Booking {
   isOverdue?: boolean;
 }
 
+export interface ResourceHistoryEntry {
+  id: string;
+  resourceId: string;
+  action: "update" | string;
+  field: string;
+  oldValue: string;
+  newValue: string;
+  changedBy: string | null;
+  createdAt: string;
+}
+
 export interface ResourceStat {
   id: string;
   name: string;

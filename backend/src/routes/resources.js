@@ -10,7 +10,12 @@
 const express = require("express");
 const { randomUUID } = require("node:crypto");
 const bcrypt = require("bcryptjs");
-const { resourcesDB, bookingsDB, usersDB } = require("../db/database");
+const {
+  resourcesDB,
+  bookingsDB,
+  usersDB,
+  resourceHistoryDB,
+} = require("../db/database");
 const { enrichResourceDB, getBookedQuantityDB } = require("../models/booking");
 const {
   requireAuth,
@@ -214,6 +219,19 @@ a{color:#333;font-size:14px}</style></head>
     res.json({ success: true, data: await enrichResourceDB(resource) });
   });
 
+  // GET /api/resources/:id/history
+  router.get("/:id/history", async (req, res) => {
+    const resource = await resourcesDB.getById(req.params.id);
+    if (!resource) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Resource not found." });
+    }
+
+    const entries = await resourceHistoryDB.getAllByResourceId(req.params.id);
+    res.json({ success: true, data: entries });
+  });
+
   // POST /api/resources
   router.post("/", requireAuth, requireWhitelisted, async (req, res) => {
     const { type, name, classRoom, totalQuantity, description, schoolId } =
@@ -305,6 +323,20 @@ a{color:#333;font-size:14px}</style></head>
     }
 
     const updated = await resourcesDB.update(req.params.id, updates);
+
+    if (description != null && resource.description !== updated.description) {
+      await resourceHistoryDB.create({
+        id: randomUUID(),
+        resourceId: resource.id,
+        action: "update",
+        field: "description",
+        oldValue: resource.description || "",
+        newValue: updated.description || "",
+        changedBy:
+          (req.user && (req.user.name || req.user.email)) || "Unknown user",
+      });
+    }
+
     res.json({ success: true, data: await enrichResourceDB(updated) });
   });
 
