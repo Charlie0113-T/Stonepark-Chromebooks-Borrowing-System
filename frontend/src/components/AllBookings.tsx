@@ -10,9 +10,13 @@ import { format } from "date-fns";
 
 interface AllBookingsProps {
   onStatusChange: () => void;
+  refreshTrigger?: number;
 }
 
-const AllBookings: React.FC<AllBookingsProps> = ({ onStatusChange }) => {
+const AllBookings: React.FC<AllBookingsProps> = ({
+  onStatusChange,
+  refreshTrigger,
+}) => {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [resources, setResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,7 +54,8 @@ const AllBookings: React.FC<AllBookingsProps> = ({ onStatusChange }) => {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, debouncedSearch]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter, debouncedSearch, refreshTrigger]);
 
   useEffect(() => {
     load();

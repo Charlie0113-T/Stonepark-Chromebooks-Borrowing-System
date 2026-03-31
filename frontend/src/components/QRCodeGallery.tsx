@@ -1,4 +1,4 @@
-import React, { useMemo, useRef } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { QRCodeCanvas } from "qrcode.react";
 import { Resource } from "../types";
 
@@ -8,6 +8,7 @@ interface Props {
 
 export default function QRCodeGallery({ resources }: Props) {
   const canvasRefs = useRef<Record<string, HTMLCanvasElement | null>>({});
+  const [downloading, setDownloading] = useState(false);
 
   const cabinets = useMemo(() => {
     return resources
@@ -16,17 +17,41 @@ export default function QRCodeGallery({ resources }: Props) {
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [resources]);
 
+  const triggerDownload = (canvas: HTMLCanvasElement, fileName: string) => {
+    const dataUrl = canvas.toDataURL("image/png");
+    const link = document.createElement("a");
+    link.href = dataUrl;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
+
+  const handleDownloadSingle = (cabinet: Resource) => {
+    const canvas = canvasRefs.current[cabinet.id];
+    if (!canvas) return;
+    triggerDownload(canvas, `${cabinet.name.replace(/\s+/g, "-")}-qr.png`);
+  };
+
   const handleDownloadAll = () => {
-    cabinets.forEach((cabinet) => {
-      const canvas = canvasRefs.current[cabinet.id];
-      if (!canvas) return;
-      const dataUrl = canvas.toDataURL("image/png");
-      const link = document.createElement("a");
-      link.href = dataUrl;
-      link.download = `${cabinet.name.replace(/\s+/g, "-")}-qr.png`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
+    if (downloading) return;
+    setDownloading(true);
+
+    cabinets.forEach((cabinet, index) => {
+      setTimeout(() => {
+        const canvas = canvasRefs.current[cabinet.id];
+        if (canvas) {
+          triggerDownload(
+            canvas,
+            `${cabinet.name.replace(/\s+/g, "-")}-qr.png`,
+          );
+        }
+
+        // Clear downloading state after the last one fires
+        if (index === cabinets.length - 1) {
+          setTimeout(() => setDownloading(false), 500);
+        }
+      }, index * 300);
     });
   };
 
@@ -63,7 +88,7 @@ export default function QRCodeGallery({ resources }: Props) {
                 <div className="text-xs text-gray-500">{cabinet.classRoom}</div>
               </div>
               <QRCodeCanvas
-                value={`resource:${cabinet.id}`}
+                value={`${window.location.origin}?scan=resource&id=${cabinet.id}`}
                 size={180}
                 bgColor="#ffffff"
                 fgColor="#333333"
@@ -73,18 +98,53 @@ export default function QRCodeGallery({ resources }: Props) {
                   canvasRefs.current[cabinet.id] = el;
                 }}
               />
+              <button
+                onClick={() => handleDownloadSingle(cabinet)}
+                className="px-3 py-1 rounded text-xs font-medium border transition-colors hover:bg-gray-100"
+                style={{ borderColor: "#333333", color: "#333333" }}
+              >
+                Download QR
+              </button>
             </div>
           ))}
         </div>
       )}
 
+      <p className="text-xs text-gray-500">
+        ℹ️ QR codes use the internal ID — renaming a cabinet won't change its QR
+        code.
+      </p>
+
       <div className="flex justify-end">
         <button
           onClick={handleDownloadAll}
-          className="px-4 py-2 rounded text-sm font-medium"
+          disabled={downloading}
+          className="px-4 py-2 rounded text-sm font-medium inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           style={{ backgroundColor: "#333333", color: "#fff" }}
         >
-          Download All QR Codes
+          {downloading && (
+            <svg
+              className="animate-spin h-4 w-4 text-white"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+              />
+            </svg>
+          )}
+          {downloading ? "Downloading…" : "Download All QR Codes"}
         </button>
       </div>
     </div>
