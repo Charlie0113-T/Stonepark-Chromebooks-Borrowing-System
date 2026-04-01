@@ -403,6 +403,18 @@ async function initPostgres() {
     );
   `);
 
+  await pgPool.query(`
+    ALTER TABLE IF EXISTS schools ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE IF EXISTS resources ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE IF EXISTS bookings ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE IF EXISTS resource_history ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE IF EXISTS users ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE IF EXISTS whitelist_emails ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE IF EXISTS whitelist_removal_requests ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE IF EXISTS whitelist_removal_votes ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE IF EXISTS whitelist_requests ENABLE ROW LEVEL SECURITY;
+  `);
+
   await pgPool.query(
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT",
   );
