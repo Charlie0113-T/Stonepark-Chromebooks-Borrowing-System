@@ -16,10 +16,15 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
   onViewBookings,
   onResourceUpdated,
 }) => {
-  const [editing, setEditing] = useState(false);
+  const [editingName, setEditingName] = useState(false);
   const [editName, setEditName] = useState(resource.name);
+
+  const [editingRoom, setEditingRoom] = useState(false);
+  const [editRoom, setEditRoom] = useState(resource.classRoom);
+
   const [editingDescription, setEditingDescription] = useState(false);
   const [editDescription, setEditDescription] = useState(resource.description);
+
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
@@ -36,23 +41,28 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
         ? "#ffc107"
         : "#dc3545";
 
-  const handleSave = async () => {
+  const refreshAfterSave = () => {
+    if (onResourceUpdated) onResourceUpdated();
+  };
+
+  const handleSaveName = async () => {
     const trimmed = editName.trim();
     if (!trimmed) {
       setEditError("Name cannot be empty.");
       return;
     }
     if (trimmed === resource.name) {
-      setEditing(false);
+      setEditingName(false);
       setEditError(null);
       return;
     }
+
     setSaving(true);
     setEditError(null);
     try {
       await updateResource(resource.id, { name: trimmed });
-      setEditing(false);
-      if (onResourceUpdated) onResourceUpdated();
+      setEditingName(false);
+      refreshAfterSave();
     } catch (err: any) {
       setEditError(err?.response?.data?.message || "Failed to update name.");
     } finally {
@@ -60,9 +70,40 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
     }
   };
 
-  const handleCancel = () => {
+  const handleCancelName = () => {
     setEditName(resource.name);
-    setEditing(false);
+    setEditingName(false);
+    setEditError(null);
+  };
+
+  const handleSaveRoom = async () => {
+    const trimmed = editRoom.trim();
+    if (!trimmed) {
+      setEditError("Address cannot be empty.");
+      return;
+    }
+    if (trimmed === resource.classRoom) {
+      setEditingRoom(false);
+      setEditError(null);
+      return;
+    }
+
+    setSaving(true);
+    setEditError(null);
+    try {
+      await updateResource(resource.id, { classRoom: trimmed });
+      setEditingRoom(false);
+      refreshAfterSave();
+    } catch (err: any) {
+      setEditError(err?.response?.data?.message || "Failed to update address.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancelRoom = () => {
+    setEditRoom(resource.classRoom);
+    setEditingRoom(false);
     setEditError(null);
   };
 
@@ -79,7 +120,7 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
     try {
       await updateResource(resource.id, { description: trimmed });
       setEditingDescription(false);
-      if (onResourceUpdated) onResourceUpdated();
+      refreshAfterSave();
     } catch (err: any) {
       setEditError(
         err?.response?.data?.message || "Failed to update description.",
@@ -95,9 +136,14 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
     setEditError(null);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") handleSave();
-    if (e.key === "Escape") handleCancel();
+  const handleNameKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") handleSaveName();
+    if (e.key === "Escape") handleCancelName();
+  };
+
+  const handleRoomKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") handleSaveRoom();
+    if (e.key === "Escape") handleCancelRoom();
   };
 
   const handleDescriptionKeyDown = (e: React.KeyboardEvent) => {
@@ -115,24 +161,21 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
       {/* Header */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
-          {editing ? (
+          {editingName ? (
             <div className="space-y-1">
               <input
                 type="text"
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
-                onKeyDown={handleKeyDown}
+                onKeyDown={handleNameKeyDown}
                 className="w-full border rounded px-2 py-1 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-gray-400"
                 style={{ borderColor: "#ccc" }}
                 autoFocus
                 disabled={saving}
               />
-              {editError && (
-                <div className="text-xs text-red-500">{editError}</div>
-              )}
               <div className="flex gap-1">
                 <button
-                  onClick={handleSave}
+                  onClick={handleSaveName}
                   disabled={saving}
                   className="px-2 py-0.5 rounded text-xs font-medium"
                   style={{
@@ -144,7 +187,7 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
                   {saving ? "Saving…" : "Save"}
                 </button>
                 <button
-                  onClick={handleCancel}
+                  onClick={handleCancelName}
                   disabled={saving}
                   className="px-2 py-0.5 rounded border text-xs"
                   style={{ borderColor: "#ccc", color: "#555" }}
@@ -162,7 +205,7 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
                 <button
                   onClick={() => {
                     setEditName(resource.name);
-                    setEditing(true);
+                    setEditingName(true);
                     setEditError(null);
                   }}
                   className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-gray-600 text-sm"
@@ -171,9 +214,64 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
                   ✏️
                 </button>
               </div>
-              <p className="text-xs text-gray-500 mt-0.5">
-                {resource.classRoom}
-              </p>
+
+              <div className="mt-0.5 flex items-center gap-1">
+                {editingRoom ? (
+                  <div className="space-y-1 w-full">
+                    <input
+                      type="text"
+                      value={editRoom}
+                      onChange={(e) => setEditRoom(e.target.value)}
+                      onKeyDown={handleRoomKeyDown}
+                      className="w-full border rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-gray-400"
+                      style={{ borderColor: "#ccc" }}
+                      autoFocus
+                      disabled={saving}
+                      placeholder="Enter address"
+                    />
+                    <div className="flex gap-1">
+                      <button
+                        onClick={handleSaveRoom}
+                        disabled={saving}
+                        className="px-2 py-0.5 rounded text-xs font-medium"
+                        style={{
+                          backgroundColor: "#333",
+                          color: "#fff",
+                          opacity: saving ? 0.7 : 1,
+                        }}
+                      >
+                        {saving ? "Saving…" : "Save"}
+                      </button>
+                      <button
+                        onClick={handleCancelRoom}
+                        disabled={saving}
+                        className="px-2 py-0.5 rounded border text-xs"
+                        style={{ borderColor: "#ccc", color: "#555" }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {resource.classRoom}
+                    </p>
+                    <button
+                      onClick={() => {
+                        setEditRoom(resource.classRoom);
+                        setEditingRoom(true);
+                        setEditError(null);
+                      }}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-gray-600 text-sm"
+                      title="Edit address"
+                    >
+                      ✏️
+                    </button>
+                  </>
+                )}
+              </div>
+
               {resource.lastModifiedBy && (
                 <p className="text-[10px] text-gray-400 mt-0.5">
                   ✏️ Last edited by {resource.lastModifiedBy}
@@ -182,6 +280,7 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
             </div>
           )}
         </div>
+
         <StatusBadge status={resource.status} />
       </div>
 
@@ -192,6 +291,7 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
         </span>
       </div>
 
+      {/* Description */}
       <div className="space-y-1">
         {editingDescription ? (
           <div className="space-y-1">
@@ -230,26 +330,30 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
             </div>
           </div>
         ) : (
-          <div className="group/desc flex items-start gap-1">
-            <p className="text-xs text-gray-500 break-words flex-1">
-              {resource.description || "No description"}
-            </p>
-            <button
-              onClick={() => {
-                setEditDescription(resource.description);
-                setEditingDescription(true);
-                setEditError(null);
-              }}
-              className="opacity-0 group-hover/desc:opacity-100 transition-opacity text-gray-400 hover:text-gray-600 text-xs"
-              title="Edit description"
-            >
-              ✏️
-            </button>
+          <div className="group">
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-gray-500">
+                {resource.description || "No description"}
+              </span>
+              <button
+                onClick={() => {
+                  setEditDescription(resource.description);
+                  setEditingDescription(true);
+                  setEditError(null);
+                }}
+                className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-gray-600 text-sm"
+                title="Edit description"
+              >
+                ✏️
+              </button>
+            </div>
           </div>
         )}
       </div>
 
-      {editError && <div className="text-xs text-red-500">{editError}</div>}
+      {editError && !editingName && !editingRoom && !editingDescription && (
+        <div className="text-xs text-red-500">{editError}</div>
+      )}
 
       {/* Overdue indicator */}
       {resource.overdueBookings > 0 && (

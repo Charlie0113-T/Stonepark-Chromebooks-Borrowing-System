@@ -324,6 +324,33 @@ a{color:#333;font-size:14px}</style></head>
 
     const updated = await resourcesDB.update(req.params.id, updates);
 
+    const changedBy =
+      (req.user && (req.user.name || req.user.email)) || "Unknown user";
+
+    if (name != null && resource.name !== updated.name) {
+      await resourceHistoryDB.create({
+        id: randomUUID(),
+        resourceId: resource.id,
+        action: "update",
+        field: "name",
+        oldValue: resource.name || "",
+        newValue: updated.name || "",
+        changedBy,
+      });
+    }
+
+    if (classRoom != null && resource.classRoom !== updated.classRoom) {
+      await resourceHistoryDB.create({
+        id: randomUUID(),
+        resourceId: resource.id,
+        action: "update",
+        field: "classRoom",
+        oldValue: resource.classRoom || "",
+        newValue: updated.classRoom || "",
+        changedBy,
+      });
+    }
+
     if (description != null && resource.description !== updated.description) {
       await resourceHistoryDB.create({
         id: randomUUID(),
@@ -332,8 +359,7 @@ a{color:#333;font-size:14px}</style></head>
         field: "description",
         oldValue: resource.description || "",
         newValue: updated.description || "",
-        changedBy:
-          (req.user && (req.user.name || req.user.email)) || "Unknown user",
+        changedBy,
       });
     }
 
