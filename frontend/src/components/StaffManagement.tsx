@@ -407,10 +407,9 @@ export default function StaffManagement({ currentUser }: Props) {
             <div className="text-sm text-gray-500">
               {users.length} account{users.length !== 1 ? "s" : ""} total
               {users.length > 0 &&
-                users.filter((u) => !u.has_security_questions).length > 0 && (
+                users.filter((u) => !u.has_security_questions).length > 0 && ( 
                   <span className="ml-2 text-xs" style={{ color: "#856404" }}>
-                    ⚠️ {users.filter((u) => !u.has_security_questions).length}{" "}
-                    人未设安全问题
+                    ⚠️ {users.filter((u) => !u.has_security_questions).length} users without security questions
                   </span>
                 )}
             </div>
@@ -476,9 +475,9 @@ export default function StaffManagement({ currentUser }: Props) {
                                 border: "1px solid #ffc107",
                               }}
                               title="该用户还未设置安全问题，首次登录时会自动提示设置"
-                            >
-                              ⚠️ 未设安全问题
-                            </div>
+                              >
+                                ⚠️ No security questions set
+                              </div>
                           )}
                         </div>
                         <div className="flex items-center gap-1 flex-shrink-0">
@@ -559,9 +558,9 @@ export default function StaffManagement({ currentUser }: Props) {
                                 border: "1px solid #ffc107",
                               }}
                               title="该用户还未设置安全问题，首次登录时会自动提示设置"
-                            >
-                              ⚠️ 未设安全问题
-                            </div>
+                              >
+                                ⚠️ No security questions set
+                              </div>
                           )}
                         </div>
                         <button
@@ -591,9 +590,7 @@ export default function StaffManagement({ currentUser }: Props) {
             school's internal messaging).
           </p>
           <p className="text-xs text-gray-400 pt-1">
-            💡 标有「⚠️
-            未设安全问题」的用户在首次登录时会自动弹出安全问题设置窗口，无需手动配置
-            env 变量。设置后即可使用「忘记密码」功能。
+            💡 Users labeled "⚠️ No security questions set" will be prompted to set security questions on first login; no environment variables are required. Once set, they can use the "Forgot password" feature.
           </p>
         </>
       )}
