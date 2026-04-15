@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { createBooking } from "../api";
@@ -25,6 +25,9 @@ const BookingForm: React.FC<BookingFormProps> = ({
   const [notes, setNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const startTimeInputRef = useRef<HTMLDivElement>(null);
+  const endTimeInputRef = useRef<HTMLDivElement>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -159,31 +162,65 @@ const BookingForm: React.FC<BookingFormProps> = ({
 
       {/* Start Time */}
       <div>
-        <label className={labelClass}>Start Time *</label>
-        <DatePicker
-          selected={startTime}
-          onChange={(date: Date | null) => setStartTime(date)}
-          showTimeSelect
-          dateFormat="Pp"
-          className={inputClass}
-          wrapperClassName="w-full"
-          placeholderText="Select start time"
-        />
+        <div className="flex items-center gap-2 mb-1">
+          <label className={labelClass} style={{ marginBottom: 0 }}>
+            Start Time *
+          </label>
+          <button
+            type="button"
+            onClick={() => {
+              const input = startTimeInputRef.current?.querySelector("input");
+              input?.focus();
+            }}
+            className="text-lg text-gray-600 hover:text-gray-900 transition-colors"
+            title="Open date picker"
+          >
+            📅
+          </button>
+        </div>
+        <div ref={startTimeInputRef}>
+          <DatePicker
+            selected={startTime}
+            onChange={(date: Date | null) => setStartTime(date)}
+            showTimeSelect
+            dateFormat="Pp"
+            className={inputClass}
+            wrapperClassName="w-full"
+            placeholderText="Select start time"
+          />
+        </div>
       </div>
 
       {/* End Time */}
       <div>
-        <label className={labelClass}>End Time *</label>
-        <DatePicker
-          selected={endTime}
-          onChange={(date: Date | null) => setEndTime(date)}
-          showTimeSelect
-          dateFormat="Pp"
-          minDate={startTime || undefined}
-          className={inputClass}
-          wrapperClassName="w-full"
-          placeholderText="Select end time"
-        />
+        <div className="flex items-center gap-2 mb-1">
+          <label className={labelClass} style={{ marginBottom: 0 }}>
+            End Time *
+          </label>
+          <button
+            type="button"
+            onClick={() => {
+              const input = endTimeInputRef.current?.querySelector("input");
+              input?.focus();
+            }}
+            className="text-lg text-gray-600 hover:text-gray-900 transition-colors"
+            title="Open date picker"
+          >
+            📅
+          </button>
+        </div>
+        <div ref={endTimeInputRef}>
+          <DatePicker
+            selected={endTime}
+            onChange={(date: Date | null) => setEndTime(date)}
+            showTimeSelect
+            dateFormat="Pp"
+            minDate={startTime || undefined}
+            className={inputClass}
+            wrapperClassName="w-full"
+            placeholderText="Select end time"
+          />
+        </div>
       </div>
 
       {/* Notes */}
