@@ -7,14 +7,11 @@ backend/node_modules/
 frontend/build/
 frontend/dist/
 
-# Environment files
+# Environment files – ignore ALL .env variants everywhere
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-frontend/.env.local
-backend/.env
+.env*
+**/.env
+**/.env*
 
 # SQLite database files (runtime data, not committed)
 backend/data/*.db
