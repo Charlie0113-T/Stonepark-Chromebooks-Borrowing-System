@@ -75,6 +75,8 @@ const StatsView: React.FC<StatsViewProps> = ({ stats }) => {
         <h3 className="text-sm font-semibold text-gray-800 mb-3">
           Current Utilisation by Resource (%)
         </h3>
+        <div className="overflow-x-auto -mx-2">
+        <div style={{ minWidth: 280 }} className="px-2">
         <ResponsiveContainer width="100%" height={200}>
           <BarChart data={barData} margin={{ top: 5, right: 10, left: -20, bottom: 40 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -96,6 +98,8 @@ const StatsView: React.FC<StatsViewProps> = ({ stats }) => {
             </Bar>
           </BarChart>
         </ResponsiveContainer>
+        </div>
+        </div>
       </div>
 
       {/* Pie chart – resource availability split */}
@@ -135,7 +139,8 @@ const StatsView: React.FC<StatsViewProps> = ({ stats }) => {
         className="rounded-lg border overflow-hidden"
         style={{ borderColor: '#333333' }}
       >
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[480px] text-sm">
           <thead style={{ backgroundColor: '#333333', color: '#ffffff' }}>
             <tr>
               <th className="text-left px-4 py-2 font-semibold">Resource</th>
@@ -185,6 +190,7 @@ const StatsView: React.FC<StatsViewProps> = ({ stats }) => {
             })}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

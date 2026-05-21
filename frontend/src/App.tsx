@@ -283,7 +283,7 @@ function App() {
   });
 
   const tabClass = (t: Tab) =>
-    `px-5 py-2.5 text-sm font-semibold rounded-t border-b-2 transition-colors ${
+    `flex-shrink-0 px-3 sm:px-5 py-2.5 text-xs sm:text-sm font-semibold rounded-t border-b-2 transition-colors whitespace-nowrap ${
       tab === t
         ? "border-gray-900 text-gray-900 bg-white"
         : "border-transparent text-gray-500 hover:text-gray-700 bg-transparent"
@@ -304,20 +304,20 @@ function App() {
     >
       {/* Header */}
       <header style={{ backgroundColor: "#333333", color: "#ffffff" }}>
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold tracking-tight">
+        <div className="max-w-6xl mx-auto px-4 py-3 flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <h1 className="text-base sm:text-xl font-bold tracking-tight leading-tight">
               🎓 Stonepark Intermediate School
               <br />
-              <span className="text-base font-semibold">
+              <span className="text-sm sm:text-base font-semibold">
                 Chromebook Manager
               </span>
             </h1>
-            <p className="text-xs text-gray-300 mt-0.5">
+            <p className="text-xs text-gray-300 mt-0.5 hidden sm:block">
               Borrowing &amp; Reservation System
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col items-end gap-2 flex-shrink-0">
             {stats && (
               <div className="hidden sm:flex items-center gap-4 text-sm">
                 <div className="flex items-center gap-1.5">
@@ -363,8 +363,8 @@ function App() {
             )}
             {/* Auth */}
             {authUser ? (
-              <div className="flex items-center gap-2 text-xs text-gray-300">
-                <span>👤 {authUser.name}</span>
+              <div className="flex flex-wrap items-center justify-end gap-1.5 text-xs text-gray-300">
+                <span className="hidden sm:inline">👤 {authUser.name}</span>
                 {authUser.role === "admin" && (
                   <>
                     <button
@@ -429,7 +429,7 @@ function App() {
       {/* Tabs */}
       <div className="max-w-6xl mx-auto px-4">
         <div
-          className="flex gap-1 mt-4"
+          className="flex gap-1 mt-4 overflow-x-auto scrollbar-hide"
           style={{ borderBottom: "1px solid #333333" }}
         >
           <button
@@ -508,8 +508,8 @@ function App() {
             </div>
 
             {/* Filters */}
-            <div className="flex flex-wrap items-center gap-3 mb-5">
-              <div className="flex items-center gap-2">
+            <div className="flex flex-col gap-2 mb-5">
+              <div className="flex flex-wrap items-center gap-2">
                 <label className="text-sm font-medium text-gray-700">
                   Type:
                 </label>
@@ -517,7 +517,7 @@ function App() {
                   <button
                     key={f}
                     onClick={() => setFilter(f)}
-                    className="px-3 py-1 rounded border text-xs font-medium transition-colors capitalize"
+                    className="px-3 py-1.5 rounded border text-xs font-medium transition-colors capitalize"
                     style={{
                       borderColor: "#333333",
                       backgroundColor: filter === f ? "#333333" : "transparent",
@@ -532,7 +532,7 @@ function App() {
                   </button>
                 ))}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <label className="text-sm font-medium text-gray-700">
                   Status:
                 </label>
@@ -540,7 +540,7 @@ function App() {
                   <button
                     key={s}
                     onClick={() => setStatusFilter(s)}
-                    className="px-3 py-1 rounded border text-xs font-medium transition-colors capitalize"
+                    className="px-3 py-1.5 rounded border text-xs font-medium transition-colors capitalize"
                     style={{
                       borderColor: "#333333",
                       backgroundColor:
@@ -558,21 +558,23 @@ function App() {
                   </button>
                 ))}
               </div>
-              <button
-                onClick={() => setShowAddResource(true)}
-                className="px-3 py-1 rounded border text-xs font-medium transition-colors"
-                style={{
-                  borderColor: "#333333",
-                  backgroundColor: "#333333",
-                  color: "#ffffff",
-                }}
-              >
-                + Add Resource
-              </button>
-              <span className="ml-auto text-xs text-gray-500">
-                {filteredResources.length} resource
-                {filteredResources.length !== 1 ? "s" : ""}
-              </span>
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={() => setShowAddResource(true)}
+                  className="px-3 py-1.5 rounded border text-xs font-medium transition-colors"
+                  style={{
+                    borderColor: "#333333",
+                    backgroundColor: "#333333",
+                    color: "#ffffff",
+                  }}
+                >
+                  + Add Resource
+                </button>
+                <span className="text-xs text-gray-500">
+                  {filteredResources.length} resource
+                  {filteredResources.length !== 1 ? "s" : ""}
+                </span>
+              </div>
             </div>
 
             {/* Resource Grid */}

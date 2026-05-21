@@ -133,7 +133,7 @@ const AllBookings: React.FC<AllBookingsProps> = ({
       </div>
 
       {/* Status filters */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 overflow-x-auto pb-1">
         <label className="text-sm font-medium text-gray-700">Status:</label>
         {(["all", "active", "returned", "cancelled"] as const).map((s) => (
           <button
@@ -185,7 +185,7 @@ const AllBookings: React.FC<AllBookingsProps> = ({
                       </p>
                     )}
                   </div>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex flex-wrap items-center justify-end gap-1">
                     <span
                       className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold capitalize"
                       style={{
@@ -215,7 +215,7 @@ const AllBookings: React.FC<AllBookingsProps> = ({
                     )}
                   </div>
                 </div>
-                <div className="mt-2 text-xs text-gray-600 grid grid-cols-2 gap-x-4 gap-y-0.5">
+                <div className="mt-2 text-xs text-gray-600 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-0.5">
                   <span>📅 {fmtDt(b.startTime)}</span>
                   <span>🏁 {fmtDt(b.endTime)}</span>
                   {b.quantity > 1 && <span>📦 Qty: {b.quantity}</span>}
