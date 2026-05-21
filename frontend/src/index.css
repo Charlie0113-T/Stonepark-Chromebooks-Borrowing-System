@@ -8,4 +8,59 @@ body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   background-color: #f8f9fa;
   color: #1a1a1a;
+  /* Prevent horizontal overflow on mobile */
+  overflow-x: hidden;
+}
+
+/* Hide scrollbar while keeping scroll functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Ensure all interactive elements have a minimum 44px touch target on mobile */
+@media (max-width: 639px) {
+  button, [role="button"] {
+    min-height: 36px;
+  }
+}
+
+/* Safe-area inset for the bottom on notched iPhones */
+footer {
+  padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+}
+
+/* Fix react-datepicker overflow on small screens */
+.react-datepicker-popper {
+  z-index: 9999 !important;
+}
+.react-datepicker {
+  font-size: 13px !important;
+}
+
+/* react-big-calendar mobile tweaks */
+.rbc-toolbar {
+  flex-wrap: wrap !important;
+  gap: 4px;
+}
+.rbc-toolbar-label {
+  flex: 1 1 100%;
+  text-align: center;
+  font-size: 14px;
+}
+@media (max-width: 639px) {
+  .rbc-toolbar button {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+  .rbc-header {
+    font-size: 11px;
+    padding: 2px 4px;
+  }
+  .rbc-time-header-content {
+    font-size: 11px;
+  }
 }

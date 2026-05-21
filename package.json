@@ -21,5 +21,12 @@
     "react",
     "express"
   ],
-  "license": "AGPL-3.0-only"
+  "license": "AGPL-3.0-only",
+  "dependencies": {
+    "date-fns": "^4.2.1",
+    "moment": "^2.30.1",
+    "react": "^19.2.6",
+    "react-big-calendar": "^1.19.4",
+    "recharts": "^3.8.1"
+  }
 }

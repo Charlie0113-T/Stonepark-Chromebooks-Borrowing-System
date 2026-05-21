@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Calendar, momentLocalizer, Event } from 'react-big-calendar';
 import moment from 'moment';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
@@ -28,7 +28,15 @@ export default function CalendarView() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
-  const [view, setView] = useState<'month' | 'week' | 'day'>('week');
+
+  const isMobile = useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    return window.innerWidth < 640;
+  }, []);
+
+  const [view, setView] = useState<'month' | 'week' | 'day' | 'agenda'>(
+    isMobile ? 'day' : 'week'
+  );
 
   const loadData = useCallback(async () => {
     try {
@@ -92,8 +100,8 @@ export default function CalendarView() {
 
   return (
     <div>
-      <div className="flex flex-wrap items-center gap-4 mb-4">
-        <div className="flex items-center gap-2 text-xs text-gray-600">
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-600">
           <span className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded inline-block" style={{ backgroundColor: STATUS_COLORS.active }} />
             Active
@@ -114,19 +122,21 @@ export default function CalendarView() {
         <span className="ml-auto text-xs text-gray-500">{events.length} bookings</span>
       </div>
 
-      <div style={{ height: 560 }}>
-        <Calendar<CalendarEvent>
-          localizer={localizer}
-          events={events}
-          view={view}
-          onView={(v) => setView(v as 'month' | 'week' | 'day')}
-          views={['month', 'week', 'day']}
-          defaultDate={new Date()}
-          eventPropGetter={eventStyleGetter}
-          onSelectEvent={(event) => setSelectedEvent(event)}
-          popup
-          style={{ fontFamily: 'Inter, system-ui, sans-serif' }}
-        />
+      <div className="overflow-x-auto -mx-4 sm:mx-0">
+        <div style={{ minWidth: 320, height: isMobile ? 400 : 560 }} className="px-4 sm:px-0">
+          <Calendar<CalendarEvent>
+            localizer={localizer}
+            events={events}
+            view={view}
+            onView={(v) => setView(v as 'month' | 'week' | 'day' | 'agenda')}
+            views={['month', 'week', 'day', 'agenda']}
+            defaultDate={new Date()}
+            eventPropGetter={eventStyleGetter}
+            onSelectEvent={(event) => setSelectedEvent(event)}
+            popup
+            style={{ fontFamily: 'Inter, system-ui, sans-serif', fontSize: isMobile ? 11 : 13 }}
+          />
+        </div>
       </div>
 
       {/* Event detail panel */}
@@ -145,7 +155,7 @@ export default function CalendarView() {
               ×
             </button>
           </div>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-gray-700">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-gray-700">
             <span className="font-medium">Resource:</span><span>{selectedEvent.resourceName}</span>
             <span className="font-medium">Borrower:</span><span>{selectedEvent.borrower}</span>
             <span className="font-medium">Start:</span><span>{new Date(selectedEvent.start as Date).toLocaleString()}</span>
