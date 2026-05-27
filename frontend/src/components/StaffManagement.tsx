@@ -65,15 +65,9 @@ export default function StaffManagement({ currentUser }: Props) {
     setLoading(true);
     setError(null);
     try {
-      const [data, promos] = await Promise.all([
-        fetchUsers(),
-        currentUser.role === "admin"
-          ? fetchAdminPromotionRequests()
-          : Promise.resolve([]),
-      ]);
+      const data = await fetchUsers();
       console.log("[StaffManagement] fetchUsers returned:", data);
       setUsers(data);
-      setPromotionRequests(promos);
     } catch (err: any) {
       console.error("[StaffManagement] fetchUsers failed:", err);
       setError(
@@ -81,6 +75,15 @@ export default function StaffManagement({ currentUser }: Props) {
       );
     } finally {
       setLoading(false);
+    }
+    // Load promotions separately so a failure doesn't block the user list
+    if (currentUser.role === "admin") {
+      try {
+        const promos = await fetchAdminPromotionRequests();
+        setPromotionRequests(promos);
+      } catch {
+        setPromotionRequests([]);
+      }
     }
   }, []);
 
