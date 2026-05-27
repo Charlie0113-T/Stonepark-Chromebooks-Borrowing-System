@@ -4,7 +4,7 @@
   "description": "Stonepark Intermediate School Chromebook Borrowing Management System",
   "private": true,
   "engines": {
-    "node": ">=18.0.0"
+    "node": "20.x"
   },
   "scripts": {
     "install:all": "npm install --prefix backend && npm install --prefix frontend",
