@@ -67,7 +67,9 @@ export default function StaffManagement({ currentUser }: Props) {
     try {
       const [data, promos] = await Promise.all([
         fetchUsers(),
-        fetchAdminPromotionRequests(),
+        currentUser.role === "admin"
+          ? fetchAdminPromotionRequests()
+          : Promise.resolve([]),
       ]);
       console.log("[StaffManagement] fetchUsers returned:", data);
       setUsers(data);
