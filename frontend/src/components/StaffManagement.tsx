@@ -7,6 +7,7 @@ import {
   fetchAdminPromotionRequests,
   requestAdminPromotion,
   voteAdminPromotion,
+  cancelAdminPromotion,
   AuthUser,
 } from "../api";
 import { PromotionRequest } from "../types";
@@ -207,6 +208,20 @@ export default function StaffManagement({ currentUser }: Props) {
       await loadUsers();
     } catch (err: any) {
       setPromotionError(err?.response?.data?.message || "Failed to vote on promotion.");
+    } finally {
+      setPromotionLoading(false);
+    }
+  };
+
+  const handleCancelPromotion = async (email: string) => {
+    setPromotionLoading(true);
+    setPromotionError(null);
+    try {
+      await cancelAdminPromotion(email);
+      flashSuccess(`Promotion request for ${email} cancelled.`);
+      await loadUsers();
+    } catch (err: any) {
+      setPromotionError(err?.response?.data?.message || "Failed to cancel promotion.");
     } finally {
       setPromotionLoading(false);
     }
@@ -678,23 +693,38 @@ export default function StaffManagement({ currentUser }: Props) {
                             Votes: {req.votes}/{req.required}
                           </div>
                         </div>
-                        <button
-                          onClick={() => handleVotePromotion(req.email)}
-                          disabled={!canVote || promotionLoading}
-                          className="px-2 py-1 rounded border text-xs"
-                          style={{
-                            borderColor: "#333333",
-                            color: canVote ? "#333333" : "#999999",
-                            opacity: promotionLoading ? 0.6 : 1,
-                          }}
-                          title={
-                            canVote
-                              ? "Vote to approve promotion"
-                              : "Already voted or not eligible"
-                          }
-                        >
-                          {req.has_voted ? "Voted" : "Vote approve"}
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleVotePromotion(req.email)}
+                            disabled={!canVote || promotionLoading}
+                            className="px-2 py-1 rounded border text-xs"
+                            style={{
+                              borderColor: "#333333",
+                              color: canVote ? "#333333" : "#999999",
+                              opacity: promotionLoading ? 0.6 : 1,
+                            }}
+                            title={
+                              canVote
+                                ? "Vote to approve promotion"
+                                : "Already voted or not eligible"
+                            }
+                          >
+                            {req.has_voted ? "Voted" : "Vote approve"}
+                          </button>
+                          <button
+                            onClick={() => handleCancelPromotion(req.email)}
+                            disabled={promotionLoading}
+                            className="px-2 py-1 rounded border text-xs"
+                            style={{
+                              borderColor: "#dc3545",
+                              color: "#dc3545",
+                              opacity: promotionLoading ? 0.6 : 1,
+                            }}
+                            title="Cancel this promotion request"
+                          >
+                            ✕ Cancel
+                          </button>
+                        </div>
                       </div>
                     );
                   })}

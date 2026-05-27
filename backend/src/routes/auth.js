@@ -776,6 +776,14 @@ module.exports = function createAuthRouter() {
       const data = [];
       for (const request of requests) {
         const target = (request.email || "").toLowerCase();
+
+        // Auto-clean stale requests for users already promoted to admin
+        const targetUser = await usersDB.getByEmail(target);
+        if (targetUser && targetUser.role === "admin") {
+          await adminPromotionDB.clearRequest(target);
+          continue;
+        }
+
         const createdBy = (request.created_by || "").toLowerCase();
         const eligibleVoters = adminEmails.filter(
           (email) => email !== createdBy && email !== target,
@@ -926,6 +934,30 @@ module.exports = function createAuthRouter() {
         success: true,
         data: { status: "pending", email: targetEmail, votes, required },
       });
+    },
+  );
+
+  // Admin: cancel a pending promotion request
+  router.delete(
+    "/whitelist/promotions/:email",
+    requireAuth,
+    requireAdmin,
+    requireWhitelisted,
+    async (req, res) => {
+      const targetEmail = (req.params.email || "").toLowerCase();
+      if (!targetEmail)
+        return res
+          .status(400)
+          .json({ success: false, message: "email is required." });
+
+      const request = await adminPromotionDB.getByEmail(targetEmail);
+      if (!request)
+        return res
+          .status(404)
+          .json({ success: false, message: "Promotion request not found." });
+
+      await adminPromotionDB.clearRequest(targetEmail);
+      res.json({ success: true, message: `Promotion request for ${targetEmail} cancelled.` });
     },
   );
 

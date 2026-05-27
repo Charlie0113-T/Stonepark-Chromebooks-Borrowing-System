@@ -356,6 +356,10 @@ export async function voteAdminPromotion(email: string): Promise<{
   return res.data.data;
 }
 
+export async function cancelAdminPromotion(email: string): Promise<void> {
+  await api.delete(`/api/auth/whitelist/promotions/${encodeURIComponent(email)}`);
+}
+
 export function getGoogleLoginUrl(): string {
   return `${API_BASE_URL}/api/auth/google`;
 }
