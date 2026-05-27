@@ -4,8 +4,12 @@ import {
   adminDeleteUser,
   adminSetPassword,
   fetchUsers,
+  fetchAdminPromotionRequests,
+  requestAdminPromotion,
+  voteAdminPromotion,
   AuthUser,
 } from "../api";
+import { PromotionRequest } from "../types";
 
 interface UserRow {
   id: string;
@@ -46,6 +50,11 @@ export default function StaffManagement({ currentUser }: Props) {
   // Delete confirmation
   const [deleteTarget, setDeleteTarget] = useState<UserRow | null>(null);
 
+  // Promotion requests
+  const [promotionRequests, setPromotionRequests] = useState<PromotionRequest[]>([]);
+  const [promotionLoading, setPromotionLoading] = useState(false);
+  const [promotionError, setPromotionError] = useState<string | null>(null);
+
   const flashSuccess = (msg: string) => {
     setSuccess(msg);
     setError(null);
@@ -56,9 +65,13 @@ export default function StaffManagement({ currentUser }: Props) {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchUsers();
+      const [data, promos] = await Promise.all([
+        fetchUsers(),
+        fetchAdminPromotionRequests(),
+      ]);
       console.log("[StaffManagement] fetchUsers returned:", data);
       setUsers(data);
+      setPromotionRequests(promos);
     } catch (err: any) {
       console.error("[StaffManagement] fetchUsers failed:", err);
       setError(
@@ -159,6 +172,41 @@ export default function StaffManagement({ currentUser }: Props) {
     }
   };
 
+  const handleRequestPromotion = async (user: UserRow) => {
+    setPromotionLoading(true);
+    setPromotionError(null);
+    try {
+      const result = await requestAdminPromotion(user.email);
+      if ("status" in result && result.status === "promoted") {
+        flashSuccess(`${user.email} has been promoted to Admin.`);
+        await loadUsers();
+      } else {
+        flashSuccess(`Promotion request submitted for ${user.email}. Other admins can now vote.`);
+        await loadUsers();
+      }
+    } catch (err: any) {
+      setPromotionError(err?.response?.data?.message || "Failed to request promotion.");
+    } finally {
+      setPromotionLoading(false);
+    }
+  };
+
+  const handleVotePromotion = async (email: string) => {
+    setPromotionLoading(true);
+    setPromotionError(null);
+    try {
+      const result = await voteAdminPromotion(email);
+      if (result.status === "promoted") {
+        flashSuccess(`${email} has been promoted to Admin.`);
+      }
+      await loadUsers();
+    } catch (err: any) {
+      setPromotionError(err?.response?.data?.message || "Failed to vote on promotion.");
+    } finally {
+      setPromotionLoading(false);
+    }
+  };
+
   const openReset = (user: UserRow) => {
     setResetTarget(user);
     setResetPasswordValue("");
@@ -210,8 +258,7 @@ export default function StaffManagement({ currentUser }: Props) {
         <form onSubmit={handleCreate} className="space-y-3">
           <div className="text-sm font-semibold text-gray-700 mb-1">
             Create Staff Account
-          </div>
-          <div>
+          </div>          <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">
               Name (optional)
             </label>
@@ -237,20 +284,6 @@ export default function StaffManagement({ currentUser }: Props) {
               style={{ borderColor: "#ccc" }}
               required
             />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">
-              Role
-            </label>
-            <select
-              value={newRole}
-              onChange={(e) => setNewRole(e.target.value as "staff" | "admin")}
-              className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
-              style={{ borderColor: "#ccc" }}
-            >
-              <option value="staff">Staff (Teacher)</option>
-              <option value="admin">Admin</option>
-            </select>
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">
@@ -482,6 +515,19 @@ export default function StaffManagement({ currentUser }: Props) {
                         </div>
                         <div className="flex items-center gap-1 flex-shrink-0">
                           <button
+                            onClick={() => handleRequestPromotion(user)}
+                            disabled={loading || promotionLoading}
+                            className="px-2 py-1 rounded border text-xs"
+                            style={{
+                              borderColor: "#333333",
+                              color: "#333333",
+                              opacity: (loading || promotionLoading) ? 0.6 : 1,
+                            }}
+                            title="Request promotion to Admin (requires other admins to vote)"
+                          >
+                            ⬆ Promote
+                          </button>
+                          <button
                             onClick={() => openReset(user)}
                             disabled={loading}
                             className="px-2 py-1 rounded border text-xs"
@@ -584,10 +630,81 @@ export default function StaffManagement({ currentUser }: Props) {
             </div>
           )}
 
+          {/* Pending admin promotions */}
+          {(promotionRequests.length > 0 || promotionError) && (
+            <div>
+              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                ⬆ Pending Admin Promotions
+              </div>
+              {promotionError && (
+                <div
+                  className="px-3 py-2 rounded text-sm mb-2"
+                  style={{ backgroundColor: "#f8d7da", color: "#dc3545" }}
+                >
+                  {promotionError}
+                </div>
+              )}
+              {promotionRequests.length === 0 ? (
+                <div className="text-xs text-gray-400 px-1">
+                  No pending promotion requests.
+                </div>
+              ) : (
+                <div
+                  className="divide-y border rounded"
+                  style={{ borderColor: "#e5e7eb" }}
+                >
+                  {promotionRequests.map((req) => {
+                    const canVote =
+                      !req.has_voted &&
+                      req.required > 0 &&
+                      currentUser.email.toLowerCase() !== req.created_by.toLowerCase() &&
+                      currentUser.email.toLowerCase() !== req.email.toLowerCase();
+                    return (
+                      <div
+                        key={req.email}
+                        className="flex items-center justify-between px-3 py-2"
+                      >
+                        <div>
+                          <div className="text-sm text-gray-900">{req.email}</div>
+                          <div className="text-xs text-gray-400">
+                            Requested by {req.created_by}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            Votes: {req.votes}/{req.required}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleVotePromotion(req.email)}
+                          disabled={!canVote || promotionLoading}
+                          className="px-2 py-1 rounded border text-xs"
+                          style={{
+                            borderColor: "#333333",
+                            color: canVote ? "#333333" : "#999999",
+                            opacity: promotionLoading ? 0.6 : 1,
+                          }}
+                          title={
+                            canVote
+                              ? "Vote to approve promotion"
+                              : "Already voted or not eligible"
+                          }
+                        >
+                          {req.has_voted ? "Voted" : "Vote approve"}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
           <p className="text-xs text-gray-400 pt-1">
             Creating an account automatically whitelists the email. Share the
             password with the teacher securely (e.g. in person or via your
             school's internal messaging).
+          </p>
+          <p className="text-xs text-gray-400 pt-1">
+            💡 To promote a staff member to Admin, click "⬆ Promote" — other admins must vote to approve, mirroring the admin removal process.
           </p>
           <p className="text-xs text-gray-400 pt-1">
             💡 Users labeled "⚠️ No security questions set" will be prompted to set security questions on first login; no environment variables are required. Once set, they can use the "Forgot password" feature.

@@ -100,3 +100,12 @@ export interface RemovalRequest {
   required: number;
   has_voted: boolean;
 }
+
+export interface PromotionRequest {
+  email: string;
+  created_by: string;
+  created_at?: string | null;
+  votes: number;
+  required: number;
+  has_voted: boolean;
+}

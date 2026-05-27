@@ -20,6 +20,7 @@ const { enrichResourceDB, getBookedQuantityDB } = require("../models/booking");
 const {
   requireAuth,
   requireWhitelisted,
+  requireAdmin,
   isAllowedEmail,
 } = require("../middleware/auth");
 
@@ -367,7 +368,7 @@ a{color:#333;font-size:14px}</style></head>
   });
 
   // DELETE /api/resources/:id
-  router.delete("/:id", requireAuth, requireWhitelisted, async (req, res) => {
+  router.delete("/:id", requireAuth, requireAdmin, async (req, res) => {
     const resource = await resourcesDB.getById(req.params.id);
     if (!resource) {
       return res

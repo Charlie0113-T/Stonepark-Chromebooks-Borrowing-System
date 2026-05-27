@@ -5,15 +5,19 @@ import { updateResource } from "../api";
 
 interface ResourceCardProps {
   resource: Resource;
+  isAdmin?: boolean;
   onBook: (resource: Resource) => void;
   onViewBookings: (resource: Resource) => void;
+  onDelete?: (resource: Resource) => void;
   onResourceUpdated?: () => void;
 }
 
 const ResourceCard: React.FC<ResourceCardProps> = ({
   resource,
+  isAdmin = false,
   onBook,
   onViewBookings,
+  onDelete,
   onResourceUpdated,
 }) => {
   const [editingName, setEditingName] = useState(false);
@@ -27,6 +31,7 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
 
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const isAvailable = resource.status !== "full";
   const utilisationPct =
@@ -412,7 +417,58 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
         >
           History
         </button>
+        {isAdmin && onDelete && (
+          <button
+            onClick={() => setConfirmDelete(true)}
+            className="py-1.5 px-2 text-sm font-medium rounded border transition-colors hover:bg-red-50"
+            style={{ borderColor: "#dc3545", color: "#dc3545" }}
+            title="Delete resource"
+          >
+            🗑
+          </button>
+        )}
       </div>
+
+      {/* Delete confirmation */}
+      {confirmDelete && (
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50"
+          style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
+          onClick={() => setConfirmDelete(false)}
+        >
+          <div
+            className="bg-white rounded-lg shadow-xl p-6 max-w-sm w-full mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-base font-semibold text-gray-800 mb-2">
+              Delete resource?
+            </div>
+            <p className="text-sm text-gray-600 mb-4">
+              Permanently delete <strong>{resource.name}</strong>? This cannot
+              be undone. Resources with active bookings cannot be deleted.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setConfirmDelete(false);
+                  onDelete?.(resource);
+                }}
+                className="flex-1 py-2 rounded font-medium text-sm"
+                style={{ backgroundColor: "#dc3545", color: "#fff" }}
+              >
+                Yes, delete
+              </button>
+              <button
+                onClick={() => setConfirmDelete(false)}
+                className="flex-1 py-2 rounded border text-sm"
+                style={{ borderColor: "#ccc", color: "#555" }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

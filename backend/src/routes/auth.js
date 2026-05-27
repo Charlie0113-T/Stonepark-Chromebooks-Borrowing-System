@@ -25,6 +25,7 @@ const {
   usersDB,
   whitelistDB,
   whitelistRemovalDB,
+  adminPromotionDB,
   whitelistRequestsDB,
 } = require("../db/database");
 
@@ -760,6 +761,174 @@ module.exports = function createAuthRouter() {
     },
   );
 
+  // ── Admin Promotion Votes ────────────────────────────────────────────────────
+
+  router.get(
+    "/whitelist/promotions",
+    requireAuth,
+    requireAdmin,
+    requireWhitelisted,
+    async (req, res) => {
+      const requests = await adminPromotionDB.getAll();
+      const adminList = await getWhitelistedAdmins();
+      const adminEmails = adminList.map((admin) => admin.email.toLowerCase());
+
+      const data = [];
+      for (const request of requests) {
+        const target = (request.email || "").toLowerCase();
+        const createdBy = (request.created_by || "").toLowerCase();
+        const eligibleVoters = adminEmails.filter(
+          (email) => email !== createdBy && email !== target,
+        );
+        const required = eligibleVoters.length;
+        const votes = await adminPromotionDB.countVotes(target);
+        const hasVoted = await adminPromotionDB.hasVoted(
+          target,
+          req.user.email,
+        );
+        data.push({
+          email: request.email,
+          created_by: request.created_by,
+          created_at: request.created_at,
+          votes,
+          required,
+          has_voted: hasVoted,
+        });
+      }
+
+      res.json({ success: true, data });
+    },
+  );
+
+  router.post(
+    "/whitelist/promotions",
+    requireAuth,
+    requireAdmin,
+    requireWhitelisted,
+    async (req, res) => {
+      const { email } = req.body;
+      if (!email) {
+        return res
+          .status(400)
+          .json({ success: false, message: "email is required." });
+      }
+      const normalized = email.toLowerCase();
+
+      const targetUser = await usersDB.getByEmail(normalized);
+      if (!targetUser) {
+        return res.status(404).json({
+          success: false,
+          message: "No account found for this email.",
+        });
+      }
+      if (targetUser.role === "admin") {
+        return res.status(409).json({
+          success: false,
+          message: "User is already an admin.",
+        });
+      }
+
+      const adminList = await getWhitelistedAdmins();
+      const adminEmails = adminList.map((admin) => admin.email.toLowerCase());
+      const eligibleVoters = adminEmails.filter(
+        (adminEmail) => adminEmail !== req.user.email.toLowerCase(),
+      );
+
+      if (eligibleVoters.length === 0) {
+        // Only admin — promote immediately
+        await usersDB.setRole(normalized, "admin");
+        return res.json({
+          success: true,
+          data: { status: "promoted", email: normalized },
+        });
+      }
+
+      const request = await adminPromotionDB.createRequest(
+        normalized,
+        req.user.email,
+      );
+      const votes = await adminPromotionDB.countVotes(normalized);
+
+      res.status(202).json({
+        success: true,
+        data: {
+          email: request.email,
+          created_by: request.created_by,
+          created_at: request.created_at,
+          votes,
+          required: eligibleVoters.length,
+        },
+      });
+    },
+  );
+
+  router.post(
+    "/whitelist/promotions/:email/vote",
+    requireAuth,
+    requireAdmin,
+    requireWhitelisted,
+    async (req, res) => {
+      const targetEmail = (req.params.email || "").toLowerCase();
+      if (!targetEmail) {
+        return res
+          .status(400)
+          .json({ success: false, message: "email is required." });
+      }
+
+      const request = await adminPromotionDB.getByEmail(targetEmail);
+      if (!request) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Promotion request not found." });
+      }
+
+      const adminList = await getWhitelistedAdmins();
+      const adminEmails = adminList.map((admin) => admin.email.toLowerCase());
+      if (!adminEmails.includes(req.user.email.toLowerCase())) {
+        return res.status(403).json({
+          success: false,
+          message: "Only whitelisted admins can vote.",
+        });
+      }
+
+      if (req.user.email.toLowerCase() === request.created_by.toLowerCase()) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Requester cannot vote." });
+      }
+
+      if (req.user.email.toLowerCase() === targetEmail) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Target cannot vote." });
+      }
+
+      await adminPromotionDB.addVote(targetEmail, req.user.email);
+
+      const eligibleVoters = adminEmails.filter(
+        (adminEmail) =>
+          adminEmail !== request.created_by.toLowerCase() &&
+          adminEmail !== targetEmail,
+      );
+      const required = eligibleVoters.length;
+      const votes = await adminPromotionDB.countVotes(targetEmail);
+
+      if (votes >= required && required > 0) {
+        await usersDB.setRole(targetEmail, "admin");
+        await adminPromotionDB.clearRequest(targetEmail);
+        return res.json({
+          success: true,
+          data: { status: "promoted", email: targetEmail },
+        });
+      }
+
+      res.json({
+        success: true,
+        data: { status: "pending", email: targetEmail, votes, required },
+      });
+    },
+  );
+
   // Public: POST /api/auth/whitelist/apply – request to be added to whitelist
   router.post("/whitelist/apply", authLimiter, async (req, res) => {
     const { email, message } = req.body;
@@ -906,7 +1075,7 @@ module.exports = function createAuthRouter() {
     res.json({ success: true, data: users });
   });
 
-  // POST /api/auth/users – admin creates a staff (or admin) account
+  // POST /api/auth/users – admin creates a staff account (admin role requires promotion voting)
   router.post("/users", requireAuth, requireAdmin, async (req, res) => {
     const { email, password, name, role = "staff" } = req.body;
 
@@ -921,11 +1090,12 @@ module.exports = function createAuthRouter() {
         message: "Password must be at least 8 characters.",
       });
     }
-    const validRoles = ["staff", "admin"];
-    if (!validRoles.includes(role)) {
-      return res
-        .status(400)
-        .json({ success: false, message: "role must be 'staff' or 'admin'." });
+    if (role !== "staff") {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Direct admin account creation is not allowed. Use the 'Promote to Admin' voting flow instead.",
+      });
     }
 
     const existing = await usersDB.getByEmail(email);

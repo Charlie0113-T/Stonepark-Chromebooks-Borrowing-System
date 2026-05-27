@@ -401,6 +401,19 @@ async function initPostgres() {
       message TEXT DEFAULT '',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+
+    CREATE TABLE IF NOT EXISTS admin_promotion_requests (
+      email TEXT PRIMARY KEY,
+      created_by TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS admin_promotion_votes (
+      email TEXT NOT NULL,
+      voter_email TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (email, voter_email)
+    );
   `);
 
   await pgPool.query(`
@@ -413,6 +426,8 @@ async function initPostgres() {
     ALTER TABLE IF EXISTS whitelist_removal_requests ENABLE ROW LEVEL SECURITY;
     ALTER TABLE IF EXISTS whitelist_removal_votes ENABLE ROW LEVEL SECURITY;
     ALTER TABLE IF EXISTS whitelist_requests ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE IF EXISTS admin_promotion_requests ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE IF EXISTS admin_promotion_votes ENABLE ROW LEVEL SECURITY;
   `);
 
   await pgPool.query(
@@ -588,6 +603,19 @@ function initSqlite() {
       requested_by TEXT,
       message TEXT DEFAULT '',
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS admin_promotion_requests (
+      email TEXT PRIMARY KEY,
+      created_by TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS admin_promotion_votes (
+      email TEXT NOT NULL,
+      voter_email TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (email, voter_email)
     );
   `);
 
@@ -1865,6 +1893,156 @@ const whitelistRemovalDB = {
   },
 };
 
+const adminPromotionDB = {
+  async getAll() {
+    await ensureInit();
+    if (USE_POSTGRES) {
+      const result = await pgPool.query(
+        "SELECT * FROM admin_promotion_requests ORDER BY created_at DESC",
+      );
+      return result.rows;
+    }
+    return sqlite
+      .prepare(
+        "SELECT * FROM admin_promotion_requests ORDER BY created_at DESC",
+      )
+      .all();
+  },
+
+  async getByEmail(email) {
+    await ensureInit();
+    const normalized = (email || "").trim().toLowerCase();
+    if (!normalized) return null;
+    if (USE_POSTGRES) {
+      const result = await pgPool.query(
+        "SELECT * FROM admin_promotion_requests WHERE email = $1",
+        [normalized],
+      );
+      return result.rows[0] || null;
+    }
+    return (
+      sqlite
+        .prepare("SELECT * FROM admin_promotion_requests WHERE email = ?")
+        .get(normalized) || null
+    );
+  },
+
+  async createRequest(email, createdBy) {
+    await ensureInit();
+    const normalized = (email || "").trim().toLowerCase();
+    if (!normalized) return null;
+    if (USE_POSTGRES) {
+      await pgPool.query(
+        `INSERT INTO admin_promotion_requests (email, created_by)
+         VALUES ($1, $2)
+         ON CONFLICT (email) DO NOTHING`,
+        [normalized, createdBy],
+      );
+      const result = await pgPool.query(
+        "SELECT * FROM admin_promotion_requests WHERE email = $1",
+        [normalized],
+      );
+      return result.rows[0] || null;
+    }
+    sqlite
+      .prepare(
+        `INSERT OR IGNORE INTO admin_promotion_requests (email, created_by)
+       VALUES (?, ?)`,
+      )
+      .run(normalized, createdBy);
+    return (
+      sqlite
+        .prepare("SELECT * FROM admin_promotion_requests WHERE email = ?")
+        .get(normalized) || null
+    );
+  },
+
+  async addVote(email, voterEmail) {
+    await ensureInit();
+    const normalized = (email || "").trim().toLowerCase();
+    const voter = (voterEmail || "").trim().toLowerCase();
+    if (!normalized || !voter) return false;
+    if (USE_POSTGRES) {
+      await pgPool.query(
+        `INSERT INTO admin_promotion_votes (email, voter_email)
+         VALUES ($1, $2)
+         ON CONFLICT (email, voter_email) DO NOTHING`,
+        [normalized, voter],
+      );
+      return true;
+    }
+    sqlite
+      .prepare(
+        `INSERT OR IGNORE INTO admin_promotion_votes (email, voter_email)
+       VALUES (?, ?)`,
+      )
+      .run(normalized, voter);
+    return true;
+  },
+
+  async countVotes(email) {
+    await ensureInit();
+    const normalized = (email || "").trim().toLowerCase();
+    if (!normalized) return 0;
+    if (USE_POSTGRES) {
+      const result = await pgPool.query(
+        "SELECT COUNT(*)::int as cnt FROM admin_promotion_votes WHERE email = $1",
+        [normalized],
+      );
+      return result.rows[0]?.cnt || 0;
+    }
+    const row = sqlite
+      .prepare(
+        "SELECT COUNT(*) as cnt FROM admin_promotion_votes WHERE email = ?",
+      )
+      .get(normalized);
+    return row?.cnt || 0;
+  },
+
+  async hasVoted(email, voterEmail) {
+    await ensureInit();
+    const normalized = (email || "").trim().toLowerCase();
+    const voter = (voterEmail || "").trim().toLowerCase();
+    if (!normalized || !voter) return false;
+    if (USE_POSTGRES) {
+      const result = await pgPool.query(
+        "SELECT email FROM admin_promotion_votes WHERE email = $1 AND voter_email = $2",
+        [normalized, voter],
+      );
+      return !!result.rows[0];
+    }
+    const row = sqlite
+      .prepare(
+        "SELECT email FROM admin_promotion_votes WHERE email = ? AND voter_email = ?",
+      )
+      .get(normalized, voter);
+    return !!row;
+  },
+
+  async clearRequest(email) {
+    await ensureInit();
+    const normalized = (email || "").trim().toLowerCase();
+    if (!normalized) return;
+    if (USE_POSTGRES) {
+      await pgPool.query(
+        "DELETE FROM admin_promotion_votes WHERE email = $1",
+        [normalized],
+      );
+      await pgPool.query(
+        "DELETE FROM admin_promotion_requests WHERE email = $1",
+        [normalized],
+      );
+      return;
+    }
+    sqlite
+      .prepare("DELETE FROM admin_promotion_votes WHERE email = ?")
+      .run(normalized);
+    sqlite
+      .prepare("DELETE FROM admin_promotion_requests WHERE email = ?")
+      .run(normalized);
+  },
+};
+
 const whitelistRequestsDB = {
   async getAll() {
     await ensureInit();
@@ -2007,6 +2185,7 @@ module.exports = {
   usersDB,
   whitelistDB,
   whitelistRemovalDB,
+  adminPromotionDB,
   whitelistRequestsDB,
   schoolsDB,
   ready: ensureInit,

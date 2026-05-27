@@ -4,6 +4,7 @@ import {
   API_BASE_URL,
   addWhitelistEmail,
   AuthUser,
+  deleteResource,
   fetchCurrentUser,
   fetchResources,
   fetchSchools,
@@ -163,6 +164,20 @@ function App() {
     if (successTimerRef.current) clearTimeout(successTimerRef.current);
     successTimerRef.current = setTimeout(() => setSuccessMsg(null), 4000);
     await loadData();
+  };
+
+  const handleDeleteResource = async (resource: Resource) => {
+    try {
+      await deleteResource(resource.id);
+      setSuccessMsg(`"${resource.name}" deleted.`);
+      if (successTimerRef.current) clearTimeout(successTimerRef.current);
+      successTimerRef.current = setTimeout(() => setSuccessMsg(null), 4000);
+      await loadData();
+    } catch (err: any) {
+      setError(
+        err?.response?.data?.message || "Failed to delete resource.",
+      );
+    }
   };
 
   useEffect(() => {
@@ -588,8 +603,10 @@ function App() {
                   <ResourceCard
                     key={resource.id}
                     resource={resource}
+                    isAdmin={authUser?.role === "admin"}
                     onBook={setBookingResource}
                     onViewBookings={setHistoryResource}
+                    onDelete={handleDeleteResource}
                     onResourceUpdated={loadData}
                   />
                 ))}

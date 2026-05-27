@@ -4,6 +4,7 @@ import {
   CreateBookingPayload,
   CreateResourcePayload,
   RemovalRequest,
+  PromotionRequest,
   ResourceHistoryEntry,
   Resource,
   Stats,
@@ -315,6 +316,43 @@ export async function voteAdminRemoval(email: string): Promise<{
       email: string;
     };
   }>(`/api/auth/whitelist/removals/${encodeURIComponent(email)}/vote`);
+  return res.data.data;
+}
+
+export async function fetchAdminPromotionRequests(): Promise<
+  PromotionRequest[]
+> {
+  const res = await api.get<{ success: boolean; data: PromotionRequest[] }>(
+    "/api/auth/whitelist/promotions",
+  );
+  return res.data.data;
+}
+
+export async function requestAdminPromotion(
+  email: string,
+): Promise<PromotionRequest | { status: "promoted"; email: string }> {
+  const res = await api.post<{
+    success: boolean;
+    data: PromotionRequest | { status: "promoted"; email: string };
+  }>("/api/auth/whitelist/promotions", { email });
+  return res.data.data;
+}
+
+export async function voteAdminPromotion(email: string): Promise<{
+  status: "pending" | "promoted";
+  votes?: number;
+  required?: number;
+  email: string;
+}> {
+  const res = await api.post<{
+    success: boolean;
+    data: {
+      status: "pending" | "promoted";
+      votes?: number;
+      required?: number;
+      email: string;
+    };
+  }>(`/api/auth/whitelist/promotions/${encodeURIComponent(email)}/vote`);
   return res.data.data;
 }
 
