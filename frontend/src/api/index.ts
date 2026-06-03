@@ -12,7 +12,8 @@ import {
 } from "../types";
 
 function resolveApiBaseUrl() {
-  if (process.env.REACT_APP_API_URL) return process.env.REACT_APP_API_URL;
+  if (process.env.REACT_APP_API_URL)
+    return process.env.REACT_APP_API_URL.trim();
   if (process.env.NODE_ENV === "production") {
     // Fallback: if the frontend is served from the same origin as the API
     // (e.g. via a reverse proxy or custom domain), use the current origin.
