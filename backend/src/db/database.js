@@ -895,29 +895,52 @@ async function ensureWhitelistSeeds() {
 
 async function removeLegacyCabinets() {
   if (USE_POSTGRES) {
-    await pgPool.query(
-      "DELETE FROM bookings WHERE resource_id = ANY($1::text[])",
-      [LEGACY_CABINET_IDS],
-    );
-    await pgPool.query(
-      "DELETE FROM resources WHERE id = ANY($1::text[]) OR name = ANY($2::text[])",
-      [LEGACY_CABINET_IDS, LEGACY_CABINET_NAMES],
-    );
+    const client = await pgPool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(
+        "DELETE FROM bookings WHERE resource_id = ANY($1::text[])",
+        [LEGACY_CABINET_IDS],
+      );
+      await client.query(
+        "DELETE FROM resource_history WHERE resource_id = ANY($1::text[])",
+        [LEGACY_CABINET_IDS],
+      );
+      await client.query(
+        "DELETE FROM resources WHERE id = ANY($1::text[]) OR name = ANY($2::text[])",
+        [LEGACY_CABINET_IDS, LEGACY_CABINET_NAMES],
+      );
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK");
+      console.error("[DB] removeLegacyCabinets failed:", err);
+      throw err;
+    } finally {
+      client.release();
+    }
     return;
   }
 
   const idPlaceholders = LEGACY_CABINET_IDS.map(() => "?").join(",");
   const namePlaceholders = LEGACY_CABINET_NAMES.map(() => "?").join(",");
 
-  sqlite
-    .prepare(`DELETE FROM bookings WHERE resource_id IN (${idPlaceholders})`)
-    .run(...LEGACY_CABINET_IDS);
+  const db = sqlite;
+  const delBookings = db.prepare(
+    `DELETE FROM bookings WHERE resource_id IN (${idPlaceholders})`,
+  );
+  const delHistory = db.prepare(
+    `DELETE FROM resource_history WHERE resource_id IN (${idPlaceholders})`,
+  );
+  const delResources = db.prepare(
+    `DELETE FROM resources WHERE id IN (${idPlaceholders}) OR name IN (${namePlaceholders})`,
+  );
 
-  sqlite
-    .prepare(
-      `DELETE FROM resources WHERE id IN (${idPlaceholders}) OR name IN (${namePlaceholders})`,
-    )
-    .run(...LEGACY_CABINET_IDS, ...LEGACY_CABINET_NAMES);
+  const transaction = db.transaction(() => {
+    delBookings.run(...LEGACY_CABINET_IDS);
+    delHistory.run(...LEGACY_CABINET_IDS);
+    delResources.run(...LEGACY_CABINET_IDS, ...LEGACY_CABINET_NAMES);
+  });
+  transaction();
 }
 
 const resourcesDB = {
@@ -1045,20 +1068,49 @@ const resourcesDB = {
     await ensureInit();
 
     if (USE_POSTGRES) {
-      await pgPool.query("DELETE FROM bookings WHERE resource_id = $1", [id]);
-      await pgPool.query(
-        "DELETE FROM resource_history WHERE resource_id = $1",
-        [id],
-      );
-      await pgPool.query("DELETE FROM resources WHERE id = $1", [id]);
+      const client = await pgPool.connect();
+      try {
+        await client.query("BEGIN");
+        await client.query("DELETE FROM bookings WHERE resource_id = $1", [id]);
+        await client.query(
+          "DELETE FROM resource_history WHERE resource_id = $1",
+          [id],
+        );
+        await client.query("DELETE FROM resources WHERE id = $1", [id]);
+        await client.query("COMMIT");
+        console.log("[DB] Deleted resource:", id);
+      } catch (err) {
+        await client.query("ROLLBACK");
+        console.error("[DB] Delete resource failed for id:", id, err);
+        throw err;
+      } finally {
+        client.release();
+      }
       return;
     }
 
-    sqlite.prepare("DELETE FROM bookings WHERE resource_id = ?").run(id);
-    sqlite
-      .prepare("DELETE FROM resource_history WHERE resource_id = ?")
-      .run(id);
-    sqlite.prepare("DELETE FROM resources WHERE id = ?").run(id);
+    const db = sqlite;
+    const delBookings = db.prepare(
+      "DELETE FROM bookings WHERE resource_id = ?",
+    );
+    const delHistory = db.prepare(
+      "DELETE FROM resource_history WHERE resource_id = ?",
+    );
+    const delResource = db.prepare("DELETE FROM resources WHERE id = ?");
+
+    const transaction = db.transaction(() => {
+      delBookings.run(id);
+      delHistory.run(id);
+      delResource.run(id);
+    });
+
+    try {
+      transaction();
+      console.log("[DB] Deleted resource:", id);
+    } catch (err) {
+      console.error("[DB] Delete resource failed for id:", id, err);
+      throw err;
+    }
   },
 
   async hasActiveBookings(id) {

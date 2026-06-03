@@ -369,20 +369,28 @@ a{color:#333;font-size:14px}</style></head>
 
   // DELETE /api/resources/:id
   router.delete("/:id", requireAuth, requireAdmin, async (req, res) => {
-    const resource = await resourcesDB.getById(req.params.id);
-    if (!resource) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Resource not found." });
-    }
-    if (await resourcesDB.hasActiveBookings(req.params.id)) {
-      return res.status(409).json({
+    try {
+      const resource = await resourcesDB.getById(req.params.id);
+      if (!resource) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Resource not found." });
+      }
+      if (await resourcesDB.hasActiveBookings(req.params.id)) {
+        return res.status(409).json({
+          success: false,
+          message: "Cannot delete resource with active bookings.",
+        });
+      }
+      await resourcesDB.delete(req.params.id);
+      res.json({ success: true, message: "Resource deleted." });
+    } catch (err) {
+      console.error("[Resources] Delete failed for id:", req.params.id, err);
+      res.status(500).json({
         success: false,
-        message: "Cannot delete resource with active bookings.",
+        message: "Failed to delete resource. Please try again.",
       });
     }
-    await resourcesDB.delete(req.params.id);
-    res.json({ success: true, message: "Resource deleted." });
   });
 
   return router;
