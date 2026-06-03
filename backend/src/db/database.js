@@ -1045,10 +1045,19 @@ const resourcesDB = {
     await ensureInit();
 
     if (USE_POSTGRES) {
+      await pgPool.query("DELETE FROM bookings WHERE resource_id = $1", [id]);
+      await pgPool.query(
+        "DELETE FROM resource_history WHERE resource_id = $1",
+        [id],
+      );
       await pgPool.query("DELETE FROM resources WHERE id = $1", [id]);
       return;
     }
 
+    sqlite.prepare("DELETE FROM bookings WHERE resource_id = ?").run(id);
+    sqlite
+      .prepare("DELETE FROM resource_history WHERE resource_id = ?")
+      .run(id);
     sqlite.prepare("DELETE FROM resources WHERE id = ?").run(id);
   },
 
@@ -2024,10 +2033,9 @@ const adminPromotionDB = {
     const normalized = (email || "").trim().toLowerCase();
     if (!normalized) return;
     if (USE_POSTGRES) {
-      await pgPool.query(
-        "DELETE FROM admin_promotion_votes WHERE email = $1",
-        [normalized],
-      );
+      await pgPool.query("DELETE FROM admin_promotion_votes WHERE email = $1", [
+        normalized,
+      ]);
       await pgPool.query(
         "DELETE FROM admin_promotion_requests WHERE email = $1",
         [normalized],
