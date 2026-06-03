@@ -51,28 +51,29 @@ module.exports = function createResourcesRouter() {
   // Renders a mobile-friendly HTML page showing active bookings for the cabinet.
   // Admin selects a booking and enters credentials to confirm the return.
   router.get("/:id/return-via-qr", async (req, res) => {
-    const resource = await resourcesDB.getById(req.params.id);
-    if (!resource) {
-      return res.status(404).send("<h2>Resource not found.</h2>");
-    }
-
-    const activeBookings = await bookingsDB.getAll({
-      resourceId: req.params.id,
-      status: "active",
-    });
-
-    const { format } = require("date-fns");
-    const fmtDt = (iso) => {
-      try {
-        return format(new Date(iso), "MMM d, HH:mm");
-      } catch {
-        return iso;
+    try {
+      const resource = await resourcesDB.getById(req.params.id);
+      if (!resource) {
+        return res.status(404).send("<h2>Resource not found.</h2>");
       }
-    };
 
-    const bookingRows = activeBookings
-      .map(
-        (b) => `
+      const activeBookings = await bookingsDB.getAll({
+        resourceId: req.params.id,
+        status: "active",
+      });
+
+      const { format } = require("date-fns");
+      const fmtDt = (iso) => {
+        try {
+          return format(new Date(iso), "MMM d, HH:mm");
+        } catch {
+          return iso;
+        }
+      };
+
+      const bookingRows = activeBookings
+        .map(
+          (b) => `
       <label class="booking-label">
         <input type="radio" name="bookingId" value="${escapeHtml(b.id)}" required />
         <div class="booking-info">
@@ -83,13 +84,13 @@ module.exports = function createResourcesRouter() {
         </div>
       </label>
     `,
-      )
-      .join("<hr class='booking-divider'/>");
+        )
+        .join("<hr class='booking-divider'/>");
 
-    const formSection =
-      activeBookings.length === 0
-        ? `<div class="card"><p class="no-bookings">✅ No active bookings for this cabinet.</p></div>`
-        : `<form method="POST" action="/api/resources/${escapeHtml(resource.id)}/return-via-qr">
+      const formSection =
+        activeBookings.length === 0
+          ? `<div class="card"><p class="no-bookings">✅ No active bookings for this cabinet.</p></div>`
+          : `<form method="POST" action="/api/resources/${escapeHtml(resource.id)}/return-via-qr">
           <div class="card">
             <p class="section-title">Select booking to return:</p>
             ${bookingRows}
@@ -107,7 +108,7 @@ module.exports = function createResourcesRouter() {
           </div>
         </form>`;
 
-    return res.send(`<!DOCTYPE html>
+      return res.send(`<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
@@ -141,6 +142,18 @@ module.exports = function createResourcesRouter() {
   ${formSection}
 </body>
 </html>`);
+    } catch (err) {
+      console.error(
+        "[Resources] return-via-qr failed for id:",
+        req.params.id,
+        err,
+      );
+      return res
+        .status(500)
+        .send(
+          "<h2>Server Error</h2><p>Failed to load return page. Please try again later.</p>",
+        );
+    }
   });
 
   // POST /api/resources/:id/return-via-qr

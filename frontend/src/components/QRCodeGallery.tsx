@@ -106,6 +106,12 @@ export default function QRCodeGallery({ resources }: Props) {
                   canvasRefs.current[cabinet.id] = el;
                 }}
               />
+              <p
+                className="text-[10px] text-gray-400 text-center break-all leading-tight px-1"
+                style={{ maxWidth: 180 }}
+              >
+                {buildReturnUrl(cabinet.id)}
+              </p>
               <button
                 onClick={() => handleDownloadSingle(cabinet)}
                 className="px-3 py-1 rounded text-xs font-medium border transition-colors hover:bg-gray-100"

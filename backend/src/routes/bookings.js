@@ -111,16 +111,17 @@ module.exports = function createBookingsRouter() {
 
   // GET /api/bookings/:id/return-via-qr - show admin confirmation form
   router.get("/:id/return-via-qr", async (req, res) => {
-    const booking = await bookingsDB.getById(req.params.id);
-    if (!booking) {
-      return res.status(404).send("<h2>Booking not found.</h2>");
-    }
-    const statusMsg =
-      booking.status === "active"
-        ? "Admin confirmation required to return this booking."
-        : `Booking is already ${booking.status}.`;
+    try {
+      const booking = await bookingsDB.getById(req.params.id);
+      if (!booking) {
+        return res.status(404).send("<h2>Booking not found.</h2>");
+      }
+      const statusMsg =
+        booking.status === "active"
+          ? "Admin confirmation required to return this booking."
+          : `Booking is already ${booking.status}.`;
 
-    return res.send(`
+      return res.send(`
       <html>
         <head>
           <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -148,6 +149,18 @@ module.exports = function createBookingsRouter() {
         </body>
       </html>
     `);
+    } catch (err) {
+      console.error(
+        "[Bookings] return-via-qr failed for id:",
+        req.params.id,
+        err,
+      );
+      return res
+        .status(500)
+        .send(
+          "<h2>Server Error</h2><p>Failed to load return page. Please try again later.</p>",
+        );
+    }
   });
 
   // POST /api/bookings/:id/return-via-qr - admin confirmation and return
@@ -234,28 +247,22 @@ module.exports = function createBookingsRouter() {
 
     // Validate string lengths
     if (borrower.length > 200) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "borrower name is too long (max 200 characters).",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "borrower name is too long (max 200 characters).",
+      });
     }
     if (borrowerClass.length > 100) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "borrowerClass is too long (max 100 characters).",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "borrowerClass is too long (max 100 characters).",
+      });
     }
     if (notes && notes.length > 1000) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "notes is too long (max 1000 characters).",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "notes is too long (max 1000 characters).",
+      });
     }
 
     const resource = await resourcesDB.getById(resourceId);
@@ -271,12 +278,10 @@ module.exports = function createBookingsRouter() {
       resource.type !== "single" &&
       (isNaN(requestedQty) || requestedQty < 1)
     ) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "quantity must be a positive integer for cabinet resources.",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "quantity must be a positive integer for cabinet resources.",
+      });
     }
     if (requestedQty > resource.totalQuantity) {
       return res.status(400).json({
@@ -328,12 +333,10 @@ module.exports = function createBookingsRouter() {
           .json({ success: false, message: "Booking not found." });
       }
       if (booking.status !== "active") {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message: `Booking is already ${booking.status}.`,
-          });
+        return res.status(400).json({
+          success: false,
+          message: `Booking is already ${booking.status}.`,
+        });
       }
       const updated = await bookingsDB.update(req.params.id, {
         status: "returned",
@@ -361,12 +364,10 @@ module.exports = function createBookingsRouter() {
           .json({ success: false, message: "Booking not found." });
       }
       if (booking.status !== "active") {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message: `Booking is already ${booking.status}.`,
-          });
+        return res.status(400).json({
+          success: false,
+          message: `Booking is already ${booking.status}.`,
+        });
       }
       const updated = await bookingsDB.update(req.params.id, {
         status: "cancelled",
