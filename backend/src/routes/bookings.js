@@ -165,51 +165,66 @@ module.exports = function createBookingsRouter() {
 
   // POST /api/bookings/:id/return-via-qr - staff/admin confirmation and return
   router.post("/:id/return-via-qr", async (req, res) => {
-    const booking = await bookingsDB.getById(req.params.id);
-    if (!booking) {
-      return res.status(404).send("<h2>Booking not found.</h2>");
-    }
+    try {
+      const booking = await bookingsDB.getById(req.params.id);
+      if (!booking) {
+        return res.status(404).send("<h2>Booking not found.</h2>");
+      }
 
-    const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).send("<h2>Email and password are required.</h2>");
-    }
-    if (!(await isAllowedEmail(email))) {
-      return res
-        .status(403)
-        .send("<h2>This email is not on the whitelist.</h2>");
-    }
+      const { email, password } = req.body;
+      if (!email || !password) {
+        return res
+          .status(400)
+          .send("<h2>Email and password are required.</h2>");
+      }
+      if (!(await isAllowedEmail(email))) {
+        return res
+          .status(403)
+          .send("<h2>This email is not on the whitelist.</h2>");
+      }
 
-    const user = await usersDB.getByEmail(email);
-    if (
-      !user ||
-      (user.role !== "admin" && user.role !== "staff") ||
-      !user.password_hash
-    ) {
-      return res.status(403).send("<h2>Staff or admin access required.</h2>");
-    }
+      const user = await usersDB.getByEmail(email);
+      if (
+        !user ||
+        (user.role !== "admin" && user.role !== "staff") ||
+        !user.password_hash
+      ) {
+        return res.status(403).send("<h2>Staff or admin access required.</h2>");
+      }
 
-    const ok = await bcrypt.compare(password, user.password_hash);
-    if (!ok) {
-      return res.status(401).send("<h2>Invalid credentials.</h2>");
-    }
+      const ok = await bcrypt.compare(password, user.password_hash);
+      if (!ok) {
+        return res.status(401).send("<h2>Invalid credentials.</h2>");
+      }
 
-    if (booking.status !== "active") {
+      if (booking.status !== "active") {
+        return res.send(
+          `<h2>No action needed.</h2><p>Booking ${booking.id} is already ${booking.status}.</p>`,
+        );
+      }
+
+      const updated = await bookingsDB.update(req.params.id, {
+        status: "returned",
+        actualReturnTime: new Date().toISOString(),
+      });
+      const resource = await resourcesDB.getById(booking.resourceId);
+      if (resource) notifyBookingReturned(updated, resource).catch(() => {});
+
       return res.send(
-        `<h2>No action needed.</h2><p>Booking ${booking.id} is already ${booking.status}.</p>`,
+        `<h2>Return successful.</h2><p>Booking ${updated.id} has been marked as returned.</p>`,
       );
+    } catch (err) {
+      console.error(
+        "[Bookings] return-via-qr POST failed for id:",
+        req.params.id,
+        err,
+      );
+      return res
+        .status(500)
+        .send(
+          "<h2>Server Error</h2><p>Failed to process return. Please try again.</p>",
+        );
     }
-
-    const updated = await bookingsDB.update(req.params.id, {
-      status: "returned",
-      actualReturnTime: new Date().toISOString(),
-    });
-    const resource = await resourcesDB.getById(booking.resourceId);
-    if (resource) notifyBookingReturned(updated, resource).catch(() => {});
-
-    return res.send(
-      `<h2>Return successful.</h2><p>Booking ${updated.id} has been marked as returned.</p>`,
-    );
   });
 
   // POST /api/bookings - create new booking

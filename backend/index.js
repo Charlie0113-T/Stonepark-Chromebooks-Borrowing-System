@@ -28,6 +28,7 @@ const corsOptions = {
     // Allow non-browser requests (curl, health checks, server-to-server).
     if (!origin) return callback(null, true);
 
+    // If no CORS_ORIGIN is configured, allow all origins.
     if (!allowedOrigins || allowedOrigins.length === 0) {
       return callback(null, true);
     }
@@ -36,7 +37,10 @@ const corsOptions = {
       return callback(null, true);
     }
 
-    return callback(new Error(`Origin not allowed by CORS: ${origin}`));
+    // Origin not in the allow-list: don't set CORS headers.
+    // This blocks cross-origin AJAX from disallowed origins while still
+    // allowing same-origin form submissions (return-via-qr) to work.
+    callback(null, false);
   },
   credentials: true,
 };

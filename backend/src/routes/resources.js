@@ -159,60 +159,61 @@ module.exports = function createResourcesRouter() {
   // POST /api/resources/:id/return-via-qr
   // Verifies staff/admin credentials and marks the selected booking as returned.
   router.post("/:id/return-via-qr", async (req, res) => {
-    const resource = await resourcesDB.getById(req.params.id);
-    if (!resource) {
-      return res.status(404).send("<h2>Resource not found.</h2>");
-    }
+    try {
+      const resource = await resourcesDB.getById(req.params.id);
+      if (!resource) {
+        return res.status(404).send("<h2>Resource not found.</h2>");
+      }
 
-    const { email, password, bookingId } = req.body;
-    if (!email || !password || !bookingId) {
-      return res.status(400).send("<h2>Missing required fields.</h2>");
-    }
+      const { email, password, bookingId } = req.body;
+      if (!email || !password || !bookingId) {
+        return res.status(400).send("<h2>Missing required fields.</h2>");
+      }
 
-    if (!(await isAllowedEmail(email))) {
-      return res
-        .status(403)
-        .send("<h2>This email is not on the whitelist.</h2>");
-    }
+      if (!(await isAllowedEmail(email))) {
+        return res
+          .status(403)
+          .send("<h2>This email is not on the whitelist.</h2>");
+      }
 
-    const user = await usersDB.getByEmail(email);
-    if (
-      !user ||
-      (user.role !== "admin" && user.role !== "staff") ||
-      !user.password_hash
-    ) {
-      return res.status(403).send("<h2>Staff or admin access required.</h2>");
-    }
+      const user = await usersDB.getByEmail(email);
+      if (
+        !user ||
+        (user.role !== "admin" && user.role !== "staff") ||
+        !user.password_hash
+      ) {
+        return res.status(403).send("<h2>Staff or admin access required.</h2>");
+      }
 
-    const ok = await bcrypt.compare(password, user.password_hash);
-    if (!ok) {
-      return res.status(401).send(`<!DOCTYPE html>
+      const ok = await bcrypt.compare(password, user.password_hash);
+      if (!ok) {
+        return res.status(401).send(`<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Error</title>
 <style>body{font-family:Arial,sans-serif;padding:24px;max-width:500px;margin:0 auto}
 a{color:#333;font-size:14px}</style></head>
 <body><h2>❌ Invalid credentials</h2><p style="margin:12px 0;color:#555">Please go back and try again.</p>
 <a href="/api/resources/${escapeHtml(resource.id)}/return-via-qr">← Go back</a></body></html>`);
-    }
+      }
 
-    const booking = await bookingsDB.getById(bookingId);
-    if (!booking || booking.resourceId !== resource.id) {
-      return res
-        .status(404)
-        .send("<h2>Booking not found for this resource.</h2>");
-    }
-    if (booking.status !== "active") {
-      return res.send(
-        `<h2>No action needed.</h2><p>Booking is already ${escapeHtml(booking.status)}.</p>`,
-      );
-    }
+      const booking = await bookingsDB.getById(bookingId);
+      if (!booking || booking.resourceId !== resource.id) {
+        return res
+          .status(404)
+          .send("<h2>Booking not found for this resource.</h2>");
+      }
+      if (booking.status !== "active") {
+        return res.send(
+          `<h2>No action needed.</h2><p>Booking is already ${escapeHtml(booking.status)}.</p>`,
+        );
+      }
 
-    await bookingsDB.update(bookingId, {
-      status: "returned",
-      actualReturnTime: new Date().toISOString(),
-    });
+      await bookingsDB.update(bookingId, {
+        status: "returned",
+        actualReturnTime: new Date().toISOString(),
+      });
 
-    return res.send(`<!DOCTYPE html>
+      return res.send(`<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Returned</title>
 <style>body{font-family:Arial,sans-serif;padding:24px;max-width:500px;margin:0 auto;text-align:center}
@@ -224,6 +225,18 @@ a{color:#333;font-size:14px}</style></head>
   <p class="info">👤 ${escapeHtml(booking.borrower)} (${escapeHtml(booking.borrowerClass)})</p>
   <p class="info" style="margin-top:16px;color:#28a745;font-weight:700">Successfully returned</p>
 </body></html>`);
+    } catch (err) {
+      console.error(
+        "[Resources] return-via-qr POST failed for id:",
+        req.params.id,
+        err,
+      );
+      return res
+        .status(500)
+        .send(
+          "<h2>Server Error</h2><p>Failed to process return. Please try again.</p>",
+        );
+    }
   });
 
   // GET /api/resources/:id
