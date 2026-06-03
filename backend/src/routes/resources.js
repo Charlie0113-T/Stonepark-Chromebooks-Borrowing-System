@@ -97,11 +97,11 @@ module.exports = function createResourcesRouter() {
           </div>
           <div class="card">
             <div class="field">
-              <label for="email">Admin Email</label>
+              <label for="email">Staff/Admin Email</label>
               <input id="email" name="email" type="email" required autocomplete="email" />
             </div>
             <div class="field">
-              <label for="password">Admin Password</label>
+              <label for="password">Password</label>
               <input id="password" name="password" type="password" required autocomplete="current-password" />
             </div>
             <button type="submit">✅ Confirm Return</button>
@@ -157,7 +157,7 @@ module.exports = function createResourcesRouter() {
   });
 
   // POST /api/resources/:id/return-via-qr
-  // Verifies admin credentials and marks the selected booking as returned.
+  // Verifies staff/admin credentials and marks the selected booking as returned.
   router.post("/:id/return-via-qr", async (req, res) => {
     const resource = await resourcesDB.getById(req.params.id);
     if (!resource) {
@@ -176,8 +176,12 @@ module.exports = function createResourcesRouter() {
     }
 
     const user = await usersDB.getByEmail(email);
-    if (!user || user.role !== "admin" || !user.password_hash) {
-      return res.status(403).send("<h2>Admin access required.</h2>");
+    if (
+      !user ||
+      (user.role !== "admin" && user.role !== "staff") ||
+      !user.password_hash
+    ) {
+      return res.status(403).send("<h2>Staff or admin access required.</h2>");
     }
 
     const ok = await bcrypt.compare(password, user.password_hash);

@@ -139,9 +139,9 @@ module.exports = function createBookingsRouter() {
           <p>${escapeHtml(statusMsg)}</p>
           <div class="card">
             <form method="POST" action="/api/bookings/${escapeHtml(booking.id)}/return-via-qr">
-              <label for="email">Admin Email</label>
+              <label for="email">Staff/Admin Email</label>
               <input id="email" name="email" type="email" required />
-              <label for="password">Admin Password</label>
+              <label for="password">Password</label>
               <input id="password" name="password" type="password" required />
               <button type="submit">Confirm Return</button>
             </form>
@@ -163,7 +163,7 @@ module.exports = function createBookingsRouter() {
     }
   });
 
-  // POST /api/bookings/:id/return-via-qr - admin confirmation and return
+  // POST /api/bookings/:id/return-via-qr - staff/admin confirmation and return
   router.post("/:id/return-via-qr", async (req, res) => {
     const booking = await bookingsDB.getById(req.params.id);
     if (!booking) {
@@ -181,8 +181,12 @@ module.exports = function createBookingsRouter() {
     }
 
     const user = await usersDB.getByEmail(email);
-    if (!user || user.role !== "admin" || !user.password_hash) {
-      return res.status(403).send("<h2>Admin access required.</h2>");
+    if (
+      !user ||
+      (user.role !== "admin" && user.role !== "staff") ||
+      !user.password_hash
+    ) {
+      return res.status(403).send("<h2>Staff or admin access required.</h2>");
     }
 
     const ok = await bcrypt.compare(password, user.password_hash);

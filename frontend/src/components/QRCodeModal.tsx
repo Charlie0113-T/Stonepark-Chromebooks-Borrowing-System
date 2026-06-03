@@ -18,7 +18,7 @@ export default function QRCodeModal({ booking, resourceName, onClose }: Props) {
       <p className="text-sm text-gray-600 text-center">
         Scan this QR code to return <strong>{resourceName}</strong>
         <br />
-        Admin credentials are required to confirm.
+        Staff or admin credentials are required to confirm.
       </p>
 
       <div
