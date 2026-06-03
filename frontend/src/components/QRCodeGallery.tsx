@@ -7,6 +7,12 @@ interface Props {
   resources: Resource[];
 }
 
+/** Build the absolute return-via-qr URL for a resource. */
+function buildReturnUrl(resourceId: string): string {
+  const base = API_BASE_URL || window.location.origin;
+  return `${base}/api/resources/${encodeURIComponent(resourceId)}/return-via-qr`;
+}
+
 export default function QRCodeGallery({ resources }: Props) {
   const canvasRefs = useRef<Record<string, HTMLCanvasElement | null>>({});
   const [downloading, setDownloading] = useState(false);
@@ -90,7 +96,7 @@ export default function QRCodeGallery({ resources }: Props) {
                 <div className="text-xs text-gray-500">{cabinet.classRoom}</div>
               </div>
               <QRCodeCanvas
-                value={`${API_BASE_URL}/api/resources/${cabinet.id}/return-via-qr`}
+                value={buildReturnUrl(cabinet.id)}
                 size={180}
                 bgColor="#ffffff"
                 fgColor="#333333"

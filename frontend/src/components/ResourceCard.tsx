@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
+import { QRCodeCanvas } from "qrcode.react";
 import { Resource } from "../types";
 import { StatusBadge } from "./StatusBadge";
-import { updateResource } from "../api";
+import { updateResource, API_BASE_URL } from "../api";
 
 interface ResourceCardProps {
   resource: Resource;
@@ -29,9 +30,28 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
   const [editingDescription, setEditingDescription] = useState(false);
   const [editDescription, setEditDescription] = useState(resource.description);
 
+  const qrCanvasRef = useRef<HTMLCanvasElement | null>(null);
+
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const handleDownloadQr = () => {
+    const canvas = qrCanvasRef.current;
+    if (!canvas) return;
+    const dataUrl = canvas.toDataURL("image/png");
+    const link = document.createElement("a");
+    link.href = dataUrl;
+    link.download = `${resource.name.replace(/\s+/g, "-")}-qr.png`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
+
+  const buildReturnUrl = () => {
+    const base = API_BASE_URL || window.location.origin;
+    return `${base}/api/resources/${encodeURIComponent(resource.id)}/return-via-qr`;
+  };
 
   const isAvailable = resource.status !== "full";
   const utilisationPct =
@@ -396,6 +416,22 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
         </p>
       )}
 
+      {/* Hidden QR canvas for cabinet download */}
+      {resource.type === "cabinet" && (
+        <QRCodeCanvas
+          value={buildReturnUrl()}
+          size={180}
+          bgColor="#ffffff"
+          fgColor="#333333"
+          level="H"
+          includeMargin
+          ref={(el) => {
+            qrCanvasRef.current = el;
+          }}
+          style={{ display: "none" }}
+        />
+      )}
+
       {/* Actions */}
       <div className="flex gap-2 mt-auto pt-1">
         <button
@@ -417,6 +453,16 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
         >
           History
         </button>
+        {resource.type === "cabinet" && (
+          <button
+            onClick={handleDownloadQr}
+            className="py-1.5 px-2 text-sm font-medium rounded border transition-colors hover:bg-gray-100"
+            style={{ borderColor: "#333333", color: "#333333" }}
+            title="Download QR code for this cabinet"
+          >
+            🧾
+          </button>
+        )}
         {isAdmin && onDelete && (
           <button
             onClick={() => setConfirmDelete(true)}

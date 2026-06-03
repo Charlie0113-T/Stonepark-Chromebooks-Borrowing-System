@@ -14,11 +14,17 @@ import {
 function resolveApiBaseUrl() {
   if (process.env.REACT_APP_API_URL) return process.env.REACT_APP_API_URL;
   if (process.env.NODE_ENV === "production") {
-    console.error(
-      "[API] REACT_APP_API_URL is not set in production! API calls will fail. " +
-        "Set this environment variable to the backend URL (e.g. https://your-api.onrender.com).",
+    // Fallback: if the frontend is served from the same origin as the API
+    // (e.g. via a reverse proxy or custom domain), use the current origin.
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    console.warn(
+      "[API] REACT_APP_API_URL is not set! " +
+        "Falling back to " +
+        (origin || "empty string") +
+        ". " +
+        "Set REACT_APP_API_URL to the backend URL (e.g. https://your-api.onrender.com) for production.",
     );
-    return "";
+    return origin;
   }
   return "http://localhost:4000";
 }
@@ -357,7 +363,9 @@ export async function voteAdminPromotion(email: string): Promise<{
 }
 
 export async function cancelAdminPromotion(email: string): Promise<void> {
-  await api.delete(`/api/auth/whitelist/promotions/${encodeURIComponent(email)}`);
+  await api.delete(
+    `/api/auth/whitelist/promotions/${encodeURIComponent(email)}`,
+  );
 }
 
 export function getGoogleLoginUrl(): string {

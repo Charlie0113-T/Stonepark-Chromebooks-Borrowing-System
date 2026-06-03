@@ -67,6 +67,9 @@ services:
     runtime: static
     buildCommand: npm install --prefix frontend && npm run build --prefix frontend
     staticPublishPath: frontend/build
+    envVars:
+      - key: REACT_APP_API_URL
+        value: https://stonepark-chromebooks-borrowing-system.onrender.com
     headers:
       - path: /*
         name: Cache-Control
