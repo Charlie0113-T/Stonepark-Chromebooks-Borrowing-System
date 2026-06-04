@@ -148,9 +148,10 @@ export default function ScanPage({ resourceId }: Props) {
             maxWidth: 400,
             width: "100%",
             backgroundColor: "#fff",
-            borderRadius: 12,
+            borderRadius: 8,
             padding: 28,
-            boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
+            border: "1px solid #e0e0e0",
+            boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
           }}
         >
           <div style={{ textAlign: "center", marginBottom: 20 }}>
@@ -306,7 +307,7 @@ export default function ScanPage({ resourceId }: Props) {
       style={{
         minHeight: "100vh",
         fontFamily: "Inter, system-ui, sans-serif",
-        backgroundColor: "#f8f9fa",
+        backgroundColor: "#f5f5f5",
         padding: 16,
         maxWidth: 500,
         margin: "0 auto",
@@ -318,7 +319,7 @@ export default function ScanPage({ resourceId }: Props) {
         style={{
           backgroundColor: "#333",
           color: "#fff",
-          borderRadius: 10,
+          borderRadius: 6,
           padding: "14px 16px",
           marginBottom: 16,
         }}
@@ -338,12 +339,13 @@ export default function ScanPage({ resourceId }: Props) {
       {error && (
         <div
           style={{
-            backgroundColor: "#f8d7da",
+            border: "1px solid #dc3545",
             color: "#dc3545",
             padding: "10px 14px",
-            borderRadius: 8,
+            borderRadius: 6,
             fontSize: 13,
             marginBottom: 12,
+            backgroundColor: "#fff",
           }}
         >
           {error}
@@ -352,15 +354,16 @@ export default function ScanPage({ resourceId }: Props) {
       {success && (
         <div
           style={{
-            backgroundColor: "#d4edda",
-            color: "#155724",
+            border: "1px solid #333",
+            color: "#333",
             padding: "10px 14px",
-            borderRadius: 8,
+            borderRadius: 6,
             fontSize: 13,
             marginBottom: 12,
+            backgroundColor: "#fff",
           }}
         >
-          ✅ {success}
+          {success}
         </div>
       )}
 
@@ -374,7 +377,7 @@ export default function ScanPage({ resourceId }: Props) {
           <div
             style={{
               backgroundColor: "#fff",
-              borderRadius: 10,
+              borderRadius: 6,
               padding: 14,
               marginBottom: 14,
               border: "1px solid #e0e0e0",
@@ -396,7 +399,7 @@ export default function ScanPage({ resourceId }: Props) {
             <div
               style={{
                 backgroundColor: "#fff",
-                borderRadius: 10,
+                borderRadius: 6,
                 padding: 20,
                 textAlign: "center",
                 border: "1px solid #e0e0e0",
@@ -425,7 +428,7 @@ export default function ScanPage({ resourceId }: Props) {
                   key={b.id}
                   style={{
                     backgroundColor: "#fff",
-                    borderRadius: 10,
+                    borderRadius: 6,
                     padding: 12,
                     marginBottom: 8,
                     border: "1px solid #e0e0e0",
@@ -460,15 +463,15 @@ export default function ScanPage({ resourceId }: Props) {
                     onClick={() => handleReturnSingle(b)}
                     disabled={returning}
                     style={{
-                      padding: "8px 14px",
-                      backgroundColor: "#333",
-                      color: "#fff",
-                      border: "none",
-                      borderRadius: 7,
+                      padding: "7px 14px",
+                      backgroundColor: "#fff",
+                      color: "#333",
+                      border: "1px solid #333",
+                      borderRadius: 6,
                       fontSize: 13,
-                      fontWeight: 600,
+                      fontWeight: 500,
                       cursor: returning ? "default" : "pointer",
-                      opacity: returning ? 0.6 : 1,
+                      opacity: returning ? 0.5 : 1,
                       whiteSpace: "nowrap",
                     }}
                   >
@@ -483,16 +486,17 @@ export default function ScanPage({ resourceId }: Props) {
                 disabled={returning}
                 style={{
                   width: "100%",
-                  padding: "14px",
-                  backgroundColor: "#28a745",
+                  padding: "13px",
+                  backgroundColor: returning ? "#555" : "#111",
                   color: "#fff",
-                  border: "none",
-                  borderRadius: 10,
-                  fontSize: 16,
-                  fontWeight: 700,
+                  border: "1px solid #111",
+                  borderRadius: 6,
+                  fontSize: 15,
+                  fontWeight: 600,
                   cursor: returning ? "default" : "pointer",
                   opacity: returning ? 0.7 : 1,
                   marginTop: 8,
+                  letterSpacing: "0.01em",
                 }}
               >
                 {returning ? "Processing…" : "Return All"}
