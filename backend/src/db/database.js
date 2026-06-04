@@ -453,6 +453,9 @@ async function initPostgres() {
   await pgPool.query(
     "ALTER TABLE resources ADD COLUMN IF NOT EXISTS last_modified_by TEXT",
   );
+  await pgPool.query(
+    "ALTER TABLE bookings ADD COLUMN IF NOT EXISTS created_by TEXT",
+  );
 
   const schoolCount = await pgPool.query(
     "SELECT COUNT(*)::int as cnt FROM schools",
