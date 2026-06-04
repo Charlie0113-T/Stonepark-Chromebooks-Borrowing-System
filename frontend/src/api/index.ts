@@ -150,6 +150,18 @@ export async function cancelBooking(id: string): Promise<Booking> {
   return res.data.data;
 }
 
+/** Return all active bookings for a resource (authenticated via JWT) */
+export async function returnAllForResource(
+  resourceId: string,
+): Promise<{ returned: number; bookings: Booking[] }> {
+  const res = await api.post<{
+    success: boolean;
+    message: string;
+    data: { returned: number; bookings: Booking[] };
+  }>(`/api/resources/${resourceId}/return-all`);
+  return res.data.data;
+}
+
 /** Returns the URL for a booking's QR code image */
 export function getBookingQrUrl(
   id: string,
@@ -207,11 +219,12 @@ export interface AuthUser {
 export async function loginWithEmail(
   email: string,
   password: string,
+  rememberMe?: boolean,
 ): Promise<{ user: AuthUser; token: string }> {
   const res = await api.post<{
     success: boolean;
     data: { user: AuthUser; token: string };
-  }>("/api/auth/login", { email, password });
+  }>("/api/auth/login", { email, password, rememberMe });
   return res.data.data;
 }
 
@@ -220,11 +233,18 @@ export async function signupWithEmail(
   password: string,
   name?: string,
   securityAnswers?: { food: string; book: string; color: string },
+  rememberMe?: boolean,
 ): Promise<{ user: AuthUser; token: string }> {
   const res = await api.post<{
     success: boolean;
     data: { user: AuthUser; token: string };
-  }>("/api/auth/signup", { email, password, name, securityAnswers });
+  }>("/api/auth/signup", {
+    email,
+    password,
+    name,
+    securityAnswers,
+    rememberMe,
+  });
   return res.data.data;
 }
 

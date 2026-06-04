@@ -46,7 +46,7 @@ async function isAllowedEmail(email) {
 /**
  * Signs a JWT for the given user payload.
  */
-function signToken(user) {
+function signToken(user, expiresIn = "8h") {
   return jwt.sign(
     {
       id: user.id,
@@ -56,7 +56,7 @@ function signToken(user) {
       schoolId: user.schoolId,
     },
     JWT_SECRET,
-    { expiresIn: "8h" },
+    { expiresIn },
   );
 }
 
@@ -120,12 +120,10 @@ function requireAdmin(req, res, next) {
 async function requireWhitelisted(req, res, next) {
   if (AUTH_BYPASS) return next();
   if (!req.user || !(await isAllowedEmail(req.user.email))) {
-    return res
-      .status(403)
-      .json({
-        success: false,
-        message: "This account is not on the whitelist.",
-      });
+    return res.status(403).json({
+      success: false,
+      message: "This account is not on the whitelist.",
+    });
   }
   next();
 }

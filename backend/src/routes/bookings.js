@@ -331,6 +331,7 @@ module.exports = function createBookingsRouter() {
       actualReturnTime: null,
       status: "active",
       notes: notes || "",
+      createdBy: req.user ? req.user.name || req.user.email : null,
     });
 
     // Fire-and-forget notification

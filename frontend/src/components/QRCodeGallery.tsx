@@ -1,16 +1,15 @@
 import React, { useMemo, useRef, useState } from "react";
 import { QRCodeCanvas } from "qrcode.react";
 import { Resource } from "../types";
-import { API_BASE_URL } from "../api";
 
 interface Props {
   resources: Resource[];
 }
 
-/** Build the absolute return-via-qr URL for a resource. */
+/** Build the absolute scan URL for a resource. */
 function buildReturnUrl(resourceId: string): string {
-  const base = API_BASE_URL || window.location.origin;
-  return `${base}/api/resources/${encodeURIComponent(resourceId)}/return-via-qr`;
+  const base = window.location.origin;
+  return `${base}/scan/${encodeURIComponent(resourceId)}`;
 }
 
 export default function QRCodeGallery({ resources }: Props) {
@@ -125,8 +124,8 @@ export default function QRCodeGallery({ resources }: Props) {
       )}
 
       <p className="text-xs text-gray-500">
-        ℹ️ QR codes link to the return page. Admin credentials are required to
-        confirm a return.
+        ℹ️ QR codes link to the mobile-friendly return page. Staff sign in once
+        and stay signed in for 30 days.
       </p>
 
       <div className="flex justify-end">

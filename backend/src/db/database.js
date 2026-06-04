@@ -101,9 +101,11 @@ function rowToBooking(row) {
     quantity: row.quantity,
     startTime: row.start_time,
     endTime: row.end_time,
-    actualReturnTime: row.actual_return_time || null,
+    actualReturnTime: row.actual_return_time,
     status: row.status,
     notes: row.notes,
+    createdBy: row.created_by || null,
+    createdAt: row.created_at || null,
   };
 }
 
@@ -621,6 +623,7 @@ function initSqlite() {
 
   ensureSqliteUserColumns();
   ensureResourceColumns();
+  ensureBookingColumns();
 }
 
 function ensureSqliteUserColumns() {
@@ -650,6 +653,16 @@ function ensureResourceColumns() {
     sqlite
       .prepare("ALTER TABLE resources ADD COLUMN last_modified_by TEXT")
       .run();
+  }
+}
+
+function ensureBookingColumns() {
+  const columns = sqlite
+    .prepare("PRAGMA table_info(bookings)")
+    .all()
+    .map((c) => c.name);
+  if (!columns.includes("created_by")) {
+    sqlite.prepare("ALTER TABLE bookings ADD COLUMN created_by TEXT").run();
   }
 }
 
@@ -1228,8 +1241,8 @@ const bookingsDB = {
     if (USE_POSTGRES) {
       await pgPool.query(
         `INSERT INTO bookings (id, resource_id, borrower, borrower_class, quantity,
-         start_time, end_time, actual_return_time, status, notes)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+         start_time, end_time, actual_return_time, status, notes, created_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
         [
           booking.id,
           booking.resourceId,
@@ -1241,6 +1254,7 @@ const bookingsDB = {
           booking.actualReturnTime || null,
           booking.status,
           booking.notes || "",
+          booking.createdBy || null,
         ],
       );
       return this.getById(booking.id);
@@ -1249,9 +1263,9 @@ const bookingsDB = {
     sqlite
       .prepare(
         `INSERT INTO bookings (id, resource_id, borrower, borrower_class, quantity,
-       start_time, end_time, actual_return_time, status, notes)
+       start_time, end_time, actual_return_time, status, notes, created_by)
        VALUES (@id, @resourceId, @borrower, @borrowerClass, @quantity,
-       @startTime, @endTime, @actualReturnTime, @status, @notes)`,
+       @startTime, @endTime, @actualReturnTime, @status, @notes, @createdBy)`,
       )
       .run({
         id: booking.id,
@@ -1264,6 +1278,7 @@ const bookingsDB = {
         actualReturnTime: booking.actualReturnTime || null,
         status: booking.status,
         notes: booking.notes || "",
+        createdBy: booking.createdBy || null,
       });
     return this.getById(booking.id);
   },

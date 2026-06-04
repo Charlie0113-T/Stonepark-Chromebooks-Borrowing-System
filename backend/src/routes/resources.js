@@ -17,6 +17,7 @@ const {
   resourceHistoryDB,
 } = require("../db/database");
 const { enrichResourceDB, getBookedQuantityDB } = require("../models/booking");
+const { notifyBookingReturned } = require("../services/notifications");
 const {
   requireAuth,
   requireWhitelisted,
@@ -238,6 +239,63 @@ a{color:#333;font-size:14px}</style></head>
         );
     }
   });
+
+  // POST /api/resources/:id/return-all
+  // Authenticated via JWT (Bearer token) — returns all active bookings for a resource.
+  // Designed for the QR scan mobile flow where the teacher's token is auto-sent.
+  router.post(
+    "/:id/return-all",
+    requireAuth,
+    requireWhitelisted,
+    async (req, res) => {
+      try {
+        const resource = await resourcesDB.getById(req.params.id);
+        if (!resource) {
+          return res
+            .status(404)
+            .json({ success: false, message: "Resource not found." });
+        }
+
+        const activeBookings = await bookingsDB.getAll({
+          resourceId: req.params.id,
+          status: "active",
+        });
+
+        if (activeBookings.length === 0) {
+          return res.json({
+            success: true,
+            message: "No active bookings to return.",
+            data: { returned: 0, bookings: [] },
+          });
+        }
+
+        const returned = [];
+        for (const booking of activeBookings) {
+          const updated = await bookingsDB.update(booking.id, {
+            status: "returned",
+            actualReturnTime: new Date().toISOString(),
+          });
+          returned.push(updated);
+          notifyBookingReturned(updated, resource).catch(() => {});
+        }
+
+        res.json({
+          success: true,
+          message: `Returned ${returned.length} booking(s).`,
+          data: { returned: returned.length, bookings: returned },
+        });
+      } catch (err) {
+        console.error(
+          "[Resources] return-all failed for id:",
+          req.params.id,
+          err,
+        );
+        res
+          .status(500)
+          .json({ success: false, message: "Failed to process returns." });
+      }
+    },
+  );
 
   // GET /api/resources/:id
   router.get("/:id", async (req, res) => {

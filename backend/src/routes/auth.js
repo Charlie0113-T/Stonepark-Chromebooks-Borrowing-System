@@ -151,7 +151,7 @@ module.exports = function createAuthRouter() {
 
   // POST /api/auth/signup – create account (whitelist-gated registration)
   router.post("/signup", authLimiter, async (req, res) => {
-    const { email, password, name, securityAnswers } = req.body;
+    const { email, password, name, securityAnswers, rememberMe } = req.body;
     if (!email || !password) {
       return res
         .status(400)
@@ -214,13 +214,17 @@ module.exports = function createAuthRouter() {
       securityAnswer3,
     });
 
-    const token = signToken({
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      role: role,
-      schoolId: user.school_id || "school-default",
-    });
+    const tokenExpiry = rememberMe ? "30d" : "8h";
+    const token = signToken(
+      {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: role,
+        schoolId: user.school_id || "school-default",
+      },
+      tokenExpiry,
+    );
 
     res.status(201).json({
       success: true,
@@ -239,7 +243,7 @@ module.exports = function createAuthRouter() {
 
   // POST /api/auth/login – password-based login
   router.post("/login", authLimiter, async (req, res) => {
-    const { email, password } = req.body;
+    const { email, password, rememberMe } = req.body;
     if (!email || !password) {
       return res
         .status(400)
@@ -278,13 +282,18 @@ module.exports = function createAuthRouter() {
       }
     }
 
-    const token = signToken({
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      role,
-      schoolId: user.school_id || "school-default",
-    });
+    // 30-day expiry when "Keep me signed in" is checked
+    const tokenExpiry = rememberMe ? "30d" : "8h";
+    const token = signToken(
+      {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role,
+        schoolId: user.school_id || "school-default",
+      },
+      tokenExpiry,
+    );
     res.json({
       success: true,
       data: {
@@ -957,7 +966,10 @@ module.exports = function createAuthRouter() {
           .json({ success: false, message: "Promotion request not found." });
 
       await adminPromotionDB.clearRequest(targetEmail);
-      res.json({ success: true, message: `Promotion request for ${targetEmail} cancelled.` });
+      res.json({
+        success: true,
+        message: `Promotion request for ${targetEmail} cancelled.`,
+      });
     },
   );
 

@@ -38,6 +38,7 @@ export default function LoginForm({ onLogin }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [rememberMe, setRememberMe] = useState(true);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,7 +46,7 @@ export default function LoginForm({ onLogin }: Props) {
     setError(null);
     setMessage(null);
     try {
-      const { user, token } = await loginWithEmail(email, password);
+      const { user, token } = await loginWithEmail(email, password, rememberMe);
       localStorage.setItem("auth_token", token);
       localStorage.setItem("auth_user", JSON.stringify(user));
       onLogin(token, user);
@@ -227,6 +228,15 @@ export default function LoginForm({ onLogin }: Props) {
               required
             />
           </div>
+          <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              className="accent-gray-800"
+            />
+            Keep me signed in for 30 days
+          </label>
           <button
             type="submit"
             disabled={loading}

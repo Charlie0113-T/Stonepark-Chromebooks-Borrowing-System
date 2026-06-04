@@ -30,6 +30,8 @@ export interface Booking {
   status: BookingStatus;
   notes: string;
   isOverdue?: boolean;
+  createdBy?: string | null;
+  createdAt?: string | null;
 }
 
 export interface ResourceHistoryEntry {
@@ -54,6 +56,13 @@ export interface ResourceStat {
   utilisationPct: number;
 }
 
+export interface StaffUsage {
+  name: string;
+  total: number;
+  active: number;
+  returned: number;
+}
+
 export interface Stats {
   totalResources: number;
   totalBookings: number;
@@ -64,6 +73,8 @@ export interface Stats {
   overdueBookings: number;
   totalChromebooks: number;
   resourceStats: ResourceStat[];
+  staffUsage?: StaffUsage[];
+  totalUniqueStaff?: number;
 }
 
 export interface CreateBookingPayload {

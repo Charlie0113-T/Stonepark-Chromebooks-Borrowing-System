@@ -26,6 +26,7 @@ import LoginForm from "./components/LoginForm";
 import SecuritySetupModal from "./components/SecuritySetupModal";
 import Modal from "./components/Modal";
 import QRCodeGallery from "./components/QRCodeGallery";
+import ScanPage from "./components/ScanPage";
 import ResourceCard from "./components/ResourceCard";
 import StatsView from "./components/StatsView";
 import { StatusDot } from "./components/StatusBadge";
@@ -174,9 +175,7 @@ function App() {
       successTimerRef.current = setTimeout(() => setSuccessMsg(null), 4000);
       await loadData();
     } catch (err: any) {
-      setError(
-        err?.response?.data?.message || "Failed to delete resource.",
-      );
+      setError(err?.response?.data?.message || "Failed to delete resource.");
     }
   };
 
@@ -303,6 +302,12 @@ function App() {
         ? "border-gray-900 text-gray-900 bg-white"
         : "border-transparent text-gray-500 hover:text-gray-700 bg-transparent"
     }`;
+
+  // Check for scan page route (QR code scanner for mobile)
+  const scanMatch = window.location.pathname.match(/^\/scan\/([^/]+)/);
+  if (scanMatch) {
+    return <ScanPage resourceId={scanMatch[1]} />;
+  }
 
   // Show login gate when REACT_APP_REQUIRE_AUTH=true and user isn't logged in
   if (!bypassAuth && !authUser) {
