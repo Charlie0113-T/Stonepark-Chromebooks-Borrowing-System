@@ -3,9 +3,20 @@ import { setupSecurityQuestions } from "../api";
 
 interface Props {
   onComplete: () => void;
+  /** Dismiss without answering. The reminder banner stays until they do. */
+  onSkip: () => void;
 }
 
-export default function SecuritySetupModal({ onComplete }: Props) {
+/**
+ * Asks a teacher to set password-recovery answers.
+ *
+ * This used to be an unskippable wall on first sign-in, which is a hostile
+ * way to greet staff whose account an admin just created for them. It is now
+ * dismissible — but because security answers are the *only* self-service way
+ * back into an account (there is no email reset), skipping raises a standing
+ * reminder in the header rather than silently going away.
+ */
+export default function SecuritySetupModal({ onComplete, onSkip }: Props) {
   const [food, setFood] = useState("");
   const [book, setBook] = useState("");
   const [color, setColor] = useState("");
@@ -125,6 +136,13 @@ export default function SecuritySetupModal({ onComplete }: Props) {
             }}
           >
             {loading ? "Saving…" : "Save Security Questions"}
+          </button>
+          <button
+            type="button"
+            onClick={onSkip}
+            className="w-full text-xs text-gray-500 underline"
+          >
+            Not now — remind me later
           </button>
         </form>
       </div>

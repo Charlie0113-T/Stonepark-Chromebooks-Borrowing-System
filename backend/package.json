@@ -16,7 +16,7 @@
   "license": "AGPL-3.0-only",
   "type": "commonjs",
   "dependencies": {
-    "better-sqlite3": "^12.6.2",
+    "@simplewebauthn/server": "^13.3.2",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.6",
     "date-fns": "^4.1.0",
@@ -29,6 +29,7 @@
     "uuid": "^13.0.0"
   },
   "devDependencies": {
+    "better-sqlite3": "^12.6.2",
     "nodemon": "^3.1.14"
   }
 }

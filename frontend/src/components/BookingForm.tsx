@@ -1,8 +1,23 @@
-import React, { useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import { createBooking } from "../api";
+import { AuthUser, createBooking, fetchBookings } from "../api";
 import { CreateBookingPayload, Resource } from "../types";
+
+/**
+ * The signed-in teacher, for prefilling the borrower field. Read from storage
+ * rather than threaded through props so the form stays usable anywhere.
+ */
+function currentUserName(): string {
+  try {
+    const raw = localStorage.getItem("auth_user");
+    if (!raw) return "";
+    const user = JSON.parse(raw) as AuthUser;
+    return user.name || user.email || "";
+  } catch {
+    return "";
+  }
+}
 
 interface BookingFormProps {
   resource: Resource;
@@ -15,7 +30,10 @@ const BookingForm: React.FC<BookingFormProps> = ({
   onSuccess,
   onCancel,
 }) => {
-  const [borrower, setBorrower] = useState("");
+  // Prefilled with the signed-in teacher — they are the borrower the vast
+  // majority of the time, and retyping your own name on every booking is the
+  // kind of small friction that makes staff avoid the system.
+  const [borrower, setBorrower] = useState(currentUserName);
   const [borrowerClass, setBorrowerClass] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [startTime, setStartTime] = useState<Date | null>(new Date());
@@ -28,6 +46,66 @@ const BookingForm: React.FC<BookingFormProps> = ({
 
   const startTimeInputRef = useRef<HTMLDivElement>(null);
   const endTimeInputRef = useRef<HTMLDivElement>(null);
+
+  /**
+   * How many units are free during the slot the teacher actually picked.
+   *
+   * `resource.availableNow` is availability *at this instant*, which is the
+   * wrong bound for a future booking: a cabinet with 28 of 30 out right now
+   * would cap tomorrow's booking at 2 even though it will be empty by then.
+   * The server already checks the real window, so the form only needs to
+   * agree with it.
+   */
+  const [availableForSlot, setAvailableForSlot] = useState<number | null>(null);
+  const [checkingAvailability, setCheckingAvailability] = useState(false);
+
+  useEffect(() => {
+    if (resource.type !== "cabinet" || !startTime || !endTime) {
+      setAvailableForSlot(null);
+      return;
+    }
+    if (startTime >= endTime) {
+      setAvailableForSlot(null);
+      return;
+    }
+
+    let cancelled = false;
+    setCheckingAvailability(true);
+
+    // Debounced: the date pickers fire on every keystroke and scroll tick.
+    const timer = setTimeout(async () => {
+      try {
+        const overlapping = await fetchBookings({
+          resourceId: resource.id,
+          status: "active",
+        });
+        const start = startTime.getTime();
+        const end = endTime.getTime();
+        const booked = overlapping
+          .filter((b) => {
+            const bStart = new Date(b.startTime).getTime();
+            const bEnd = new Date(b.endTime).getTime();
+            return !(bEnd <= start || bStart >= end);
+          })
+          .reduce((sum, b) => sum + (b.quantity || 0), 0);
+        if (!cancelled) {
+          setAvailableForSlot(Math.max(0, resource.totalQuantity - booked));
+        }
+      } catch {
+        // Fall back to no client-side cap; the server still enforces it.
+        if (!cancelled) setAvailableForSlot(null);
+      } finally {
+        if (!cancelled) setCheckingAvailability(false);
+      }
+    }, 350);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [resource.id, resource.type, resource.totalQuantity, startTime, endTime]);
+
+  const maxQuantity = availableForSlot ?? resource.totalQuantity;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -137,16 +215,13 @@ const BookingForm: React.FC<BookingFormProps> = ({
             type="number"
             required
             min={1}
-            max={resource.availableNow}
+            max={maxQuantity}
             value={quantity}
             onChange={(e) =>
               setQuantity(
                 Math.max(
                   1,
-                  Math.min(
-                    resource.availableNow,
-                    parseInt(e.target.value, 10) || 1,
-                  ),
+                  Math.min(maxQuantity, parseInt(e.target.value, 10) || 1),
                 ),
               )
             }
@@ -154,8 +229,19 @@ const BookingForm: React.FC<BookingFormProps> = ({
             style={{ borderColor: "#333333" }}
           />
           <p className="text-xs text-gray-500 mt-1">
-            Available: <strong>{resource.availableNow}</strong> of{" "}
-            <strong>{resource.totalQuantity}</strong> units
+            {checkingAvailability ? (
+              "Checking availability for this time…"
+            ) : availableForSlot !== null ? (
+              <>
+                Available for the time you picked:{" "}
+                <strong>{availableForSlot}</strong> of{" "}
+                <strong>{resource.totalQuantity}</strong> units
+              </>
+            ) : (
+              <>
+                <strong>{resource.totalQuantity}</strong> units in this cabinet
+              </>
+            )}
           </p>
         </div>
       )}

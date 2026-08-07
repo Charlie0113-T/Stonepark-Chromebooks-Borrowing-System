@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   fetchResource,
   fetchBookings,
@@ -8,6 +8,15 @@ import {
   AuthUser,
 } from "../api";
 import { Booking, Resource } from "../types";
+import {
+  clearServiceWorkerCaches,
+  offerToSavePassword,
+} from "../utils/browserCredentials";
+import {
+  describePasskeyError,
+  loginWithPasskey,
+  supportsPasskeys,
+} from "../utils/passkeys";
 
 interface Props {
   resourceId: string;
@@ -39,6 +48,38 @@ export default function ScanPage({ resourceId }: Props) {
   const [rememberMe, setRememberMe] = useState(true);
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [passkeyAvailable, setPasskeyAvailable] = useState(false);
+  const [passkeyLoading, setPasskeyLoading] = useState(false);
+
+  useEffect(() => {
+    setPasskeyAvailable(supportsPasskeys());
+  }, []);
+
+  /**
+   * Passkey sign-in matters most here: the teacher is at the cabinet holding
+   * a phone, and typing an email and password one-handed is the worst part
+   * of the whole return flow.
+   */
+  const handlePasskeyLogin = async () => {
+    setPasskeyLoading(true);
+    setLoginError(null);
+    try {
+      const { user, token: newToken } = await loginWithPasskey({
+        email: email || undefined,
+        rememberMe,
+      });
+      localStorage.setItem("auth_token", newToken);
+      localStorage.setItem("auth_user", JSON.stringify(user));
+      setAuthUser(user);
+      setToken(newToken);
+      setShowLogin(false);
+    } catch (err: any) {
+      const msg = describePasskeyError(err);
+      if (msg) setLoginError(msg);
+    } finally {
+      setPasskeyLoading(false);
+    }
+  };
 
   // Check auth and load data
   useEffect(() => {
@@ -57,6 +98,25 @@ export default function ScanPage({ resourceId }: Props) {
     }
   }, []);
 
+  /**
+   * Send the teacher back to the sign-in form when their session has expired.
+   * The axios interceptor already clears localStorage on a 401, so without
+   * this the page would sit on an error with no way back in — the teacher is
+   * standing at the cabinet with no route forward. Returns true if handled.
+   */
+  const handleExpiredSession = useCallback((err: any) => {
+    if (err?.response?.status !== 401) return false;
+    localStorage.removeItem("auth_token");
+    localStorage.removeItem("auth_user");
+    setAuthUser(null);
+    setToken("");
+    setError(null);
+    setSuccess(null);
+    setLoginError("Your session has expired. Please sign in again.");
+    setShowLogin(true);
+    return true;
+  }, []);
+
   // Load resource and bookings once authenticated
   useEffect(() => {
     if (!token || !resourceId) return;
@@ -69,9 +129,13 @@ export default function ScanPage({ resourceId }: Props) {
         setResource(res);
         setBookings(bks);
       })
-      .catch(() => setError("Failed to load resource data."))
+      .catch((err) => {
+        if (!handleExpiredSession(err)) {
+          setError("Failed to load resource data.");
+        }
+      })
       .finally(() => setLoading(false));
-  }, [token, resourceId]);
+  }, [token, resourceId, handleExpiredSession]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,6 +149,7 @@ export default function ScanPage({ resourceId }: Props) {
       );
       localStorage.setItem("auth_token", newToken);
       localStorage.setItem("auth_user", JSON.stringify(user));
+      await offerToSavePassword({ email, password, name: user.name });
       setAuthUser(user);
       setToken(newToken);
       setShowLogin(false);
@@ -108,7 +173,9 @@ export default function ScanPage({ resourceId }: Props) {
       setSuccess(`Returned ${result.returned} booking(s) successfully.`);
       setBookings([]);
     } catch (err: any) {
-      setError(err?.response?.data?.message || "Failed to return bookings.");
+      if (!handleExpiredSession(err)) {
+        setError(err?.response?.data?.message || "Failed to return bookings.");
+      }
     } finally {
       setReturning(false);
     }
@@ -123,7 +190,9 @@ export default function ScanPage({ resourceId }: Props) {
       setSuccess(`Returned booking for ${booking.borrower}.`);
       setBookings((prev) => prev.filter((b) => b.id !== booking.id));
     } catch (err: any) {
-      setError(err?.response?.data?.message || "Failed to return booking.");
+      if (!handleExpiredSession(err)) {
+        setError(err?.response?.data?.message || "Failed to return booking.");
+      }
     } finally {
       setReturning(false);
     }
@@ -283,6 +352,44 @@ export default function ScanPage({ resourceId }: Props) {
               {loginLoading ? "Signing in…" : "Sign In"}
             </button>
           </form>
+
+          {passkeyAvailable && (
+            <>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  margin: "16px 0",
+                }}
+              >
+                <span style={{ flex: 1, height: 1, background: "#e5e7eb" }} />
+                <span style={{ fontSize: 12, color: "#999" }}>or</span>
+                <span style={{ flex: 1, height: 1, background: "#e5e7eb" }} />
+              </div>
+              <button
+                type="button"
+                onClick={handlePasskeyLogin}
+                disabled={passkeyLoading || loginLoading}
+                style={{
+                  width: "100%",
+                  padding: "13px",
+                  backgroundColor: "#fff",
+                  color: "#333",
+                  border: "1px solid #333",
+                  borderRadius: 8,
+                  fontSize: 15,
+                  fontWeight: 600,
+                  cursor: passkeyLoading ? "default" : "pointer",
+                  opacity: passkeyLoading ? 0.7 : 1,
+                }}
+              >
+                {passkeyLoading
+                  ? "Waiting for your device…"
+                  : "🔑 Sign in with a passkey"}
+              </button>
+            </>
+          )}
 
           <p
             style={{
@@ -509,6 +616,7 @@ export default function ScanPage({ resourceId }: Props) {
             onClick={() => {
               localStorage.removeItem("auth_token");
               localStorage.removeItem("auth_user");
+              clearServiceWorkerCaches();
               setAuthUser(null);
               setToken("");
               setShowLogin(true);

@@ -8,6 +8,7 @@ const createResourcesRouter = require("./src/routes/resources");
 const createBookingsRouter = require("./src/routes/bookings");
 const createStatsRouter = require("./src/routes/stats");
 const createAuthRouter = require("./src/routes/auth");
+const createPasskeysRouter = require("./src/routes/passkeys");
 const createSchoolsRouter = require("./src/routes/schools");
 
 const app = express();
@@ -52,6 +53,9 @@ app.use(express.json({ limit: "10kb" }));
 app.use(express.urlencoded({ extended: false }));
 
 // ── Routes ────────────────────────────────────────────────────────────────────
+// Mounted before the auth router so passkey traffic does not consume the
+// general auth rate-limit budget — it has its own limiter.
+app.use("/api/auth/passkeys", createPasskeysRouter());
 app.use("/api/auth", createAuthRouter());
 app.use("/api/schools", createSchoolsRouter());
 app.use("/api/resources", createResourcesRouter());

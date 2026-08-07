@@ -1,11 +1,13 @@
 /**
  * Service Worker for PWA offline support.
- * Strategy: Cache-first for static assets, network-first for API calls.
+ * Strategy: cache-first for the static app shell, network-only for the API.
  *
- * This file is registered via src/serviceWorkerRegistration.ts.
+ * Registered from src/serviceWorkerRegistration.ts.
  */
 
-const CACHE_NAME = "stonepark-cb-v3"; // Bumped from v2 to v3 for cache-affecting changes
+const VERSION = "v4";
+const STATIC_CACHE = `stonepark-cb-static-${VERSION}`;
+
 const STATIC_ASSETS = [
   "/",
   "/index.html",
@@ -15,18 +17,10 @@ const STATIC_ASSETS = [
   "/logo512.png",
 ];
 
-const MAX_API_CACHE_SIZE = 50;
 const MAX_STATIC_CACHE_SIZE = 100;
 
-// Sensitive paths that must never be cached
-const EXCLUDED_API_PATHS = ["/api/auth/"];
-
-function isExcludedPath(pathname) {
-  return EXCLUDED_API_PATHS.some((prefix) => pathname.startsWith(prefix));
-}
-
 /**
- * Trim a cache to a maximum number of entries by evicting the oldest ones first.
+ * Trim a cache to a maximum number of entries, evicting oldest first.
  */
 async function trimCache(cacheName, maxSize) {
   const cache = await caches.open(cacheName);
@@ -37,29 +31,28 @@ async function trimCache(cacheName, maxSize) {
   }
 }
 
-// Install – pre-cache static shell
+// Install – pre-cache the app shell
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS)),
+    caches.open(STATIC_CACHE).then((cache) => cache.addAll(STATIC_ASSETS)),
   );
   self.skipWaiting();
 });
 
-// Activate – clean up old caches
+// Activate – drop every cache from a previous version
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches
       .keys()
       .then((keys) =>
         Promise.all(
-          keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)),
+          keys.filter((k) => k !== STATIC_CACHE).map((k) => caches.delete(k)),
         ),
       ),
   );
   self.clients.claim();
 });
 
-// Fetch – cache-first for static, network-first for API
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
@@ -70,9 +63,9 @@ self.addEventListener("fetch", (event) => {
         .then((response) => {
           if (response.ok) {
             const cloned = response.clone();
-            caches.open(CACHE_NAME).then((cache) => {
+            caches.open(STATIC_CACHE).then((cache) => {
               cache.put(request, cloned);
-              trimCache(CACHE_NAME, MAX_STATIC_CACHE_SIZE);
+              trimCache(STATIC_CACHE, MAX_STATIC_CACHE_SIZE);
             });
           }
           return response;
@@ -86,46 +79,43 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Network-first for API calls
+  // API responses are never cached.
+  //
+  // Every endpoint is now behind a whitelisted account, and the payloads name
+  // the staff who borrowed each device. Writing that to CacheStorage would
+  // leave one teacher's data readable on a shared iPad after they signed out.
+  //
+  // Serving a cached copy offline was also actively misleading here: a stale
+  // "available" cabinet is worse than an honest error, because the teacher
+  // walks to a cabinet that someone else already took.
   if (url.pathname.startsWith("/api/")) {
-    // Never cache sensitive auth paths
-    if (isExcludedPath(url.pathname)) {
-      event.respondWith(fetch(request));
-      return;
-    }
-
-    event.respondWith(
-      fetch(request)
-        .then((response) => {
-          // Cache successful GET responses
-          if (request.method === "GET" && response.ok) {
-            const cloned = response.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(request, cloned);
-              trimCache(CACHE_NAME, MAX_API_CACHE_SIZE);
-            });
-          }
-          return response;
-        })
-        .catch(() => caches.match(request)),
-    );
-    return;
+    return; // fall through to the network, no SW involvement
   }
 
-  // Cache-first for everything else (static assets / app shell)
+  // Cache-first for the static shell (hashed bundles, icons, manifest).
   event.respondWith(
     caches.match(request).then((cached) => {
       if (cached) return cached;
       return fetch(request).then((response) => {
         if (response.ok) {
           const cloned = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
+          caches.open(STATIC_CACHE).then((cache) => {
             cache.put(request, cloned);
-            trimCache(CACHE_NAME, MAX_STATIC_CACHE_SIZE);
+            trimCache(STATIC_CACHE, MAX_STATIC_CACHE_SIZE);
           });
         }
         return response;
       });
     }),
   );
+});
+
+// Sign-out asks us to drop anything user-specific we may still hold from an
+// older version of this worker.
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "CLEAR_CACHES") {
+    event.waitUntil(
+      caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k)))),
+    );
+  }
 });

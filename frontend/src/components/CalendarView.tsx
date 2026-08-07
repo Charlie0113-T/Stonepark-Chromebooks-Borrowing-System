@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Calendar, momentLocalizer, Event } from 'react-big-calendar';
 import moment from 'moment';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
@@ -29,13 +29,24 @@ export default function CalendarView() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
 
-  const isMobile = useMemo(() => {
-    if (typeof window === 'undefined') return false;
-    return window.innerWidth < 640;
+  /**
+   * Tracked live rather than measured once on mount: teachers rotate iPads
+   * and use split view, and a calendar frozen at 11px in a landscape layout
+   * (or crushed into a 320px column after rotating back) is the result.
+   */
+  const [isMobile, setIsMobile] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth < 640
+  );
+
+  useEffect(() => {
+    const query = window.matchMedia('(max-width: 639px)');
+    const onChange = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    query.addEventListener('change', onChange);
+    return () => query.removeEventListener('change', onChange);
   }, []);
 
   const [view, setView] = useState<'month' | 'week' | 'day' | 'agenda'>(
-    isMobile ? 'day' : 'week'
+    typeof window !== 'undefined' && window.innerWidth < 640 ? 'day' : 'week'
   );
 
   const loadData = useCallback(async () => {
@@ -56,7 +67,9 @@ export default function CalendarView() {
       }));
       setEvents(calEvents);
     } catch (err) {
-      setLoadError('Failed to load bookings. Please check the backend connection.');
+      setLoadError(
+        'Could not load bookings. The server may still be waking up — please try again in a moment.'
+      );
     } finally {
       setLoading(false);
     }

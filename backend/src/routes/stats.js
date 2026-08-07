@@ -6,11 +6,12 @@
 const express = require("express");
 const { resourcesDB, bookingsDB } = require("../db/database");
 const { getBookedQuantityDB, isBookingOverdue } = require("../models/booking");
+const { requireAuth, requireWhitelisted } = require("../middleware/auth");
 
 module.exports = function createStatsRouter() {
   const router = express.Router();
 
-  router.get("/", async (req, res) => {
+  router.get("/", requireAuth, requireWhitelisted, async (req, res) => {
     const { schoolId } = req.query;
     const now = new Date().toISOString();
 

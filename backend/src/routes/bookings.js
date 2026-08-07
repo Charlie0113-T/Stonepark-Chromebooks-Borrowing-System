@@ -2,43 +2,35 @@
  * Bookings REST routes
  * GET    /api/bookings              - list all bookings (optional ?resourceId=, ?status=, ?search=, ?schoolId=)
  * GET    /api/bookings/:id          - get single booking
- * GET    /api/bookings/:id/qr       - get QR code PNG for check-in/check-out
- * GET    /api/bookings/:id/return-via-qr - mark booking as returned via QR scan
  * POST   /api/bookings              - create booking (with conflict detection)
  * PATCH  /api/bookings/:id/return   - mark a booking as returned
  * PATCH  /api/bookings/:id/cancel   - cancel a booking
+ *
+ * Every route requires a whitelisted account. Bookings name the staff who
+ * borrowed each device, so none of it is public.
+ *
+ * Returning via QR goes through the frontend /scan/:id page, which signs the
+ * teacher in once and keeps them signed in. There is deliberately no
+ * server-rendered credential form here: it made staff retype their password on
+ * a phone at every return, and gave anyone with the URL an unthrottled place
+ * to guess passwords.
  */
 
 const express = require("express");
 const { randomUUID } = require("node:crypto");
-const QRCode = require("qrcode");
-const { resourcesDB, bookingsDB, usersDB } = require("../db/database");
-const bcrypt = require("bcryptjs");
+const { resourcesDB, bookingsDB } = require("../db/database");
 const { checkConflictDB, isBookingOverdue } = require("../models/booking");
 const {
   notifyBookingCreated,
   notifyBookingReturned,
 } = require("../services/notifications");
-const {
-  requireAuth,
-  requireWhitelisted,
-  isAllowedEmail,
-} = require("../middleware/auth");
-
-function escapeHtml(str) {
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
+const { requireAuth, requireWhitelisted } = require("../middleware/auth");
 
 module.exports = function createBookingsRouter() {
   const router = express.Router();
 
   // GET /api/bookings
-  router.get("/", async (req, res) => {
+  router.get("/", requireAuth, requireWhitelisted, async (req, res) => {
     const { resourceId, status, search, schoolId } = req.query;
     let result = await bookingsDB.getAll({
       resourceId,
@@ -64,7 +56,7 @@ module.exports = function createBookingsRouter() {
   });
 
   // GET /api/bookings/:id
-  router.get("/:id", async (req, res) => {
+  router.get("/:id", requireAuth, requireWhitelisted, async (req, res) => {
     const booking = await bookingsDB.getById(req.params.id);
     if (!booking) {
       return res
@@ -75,156 +67,6 @@ module.exports = function createBookingsRouter() {
       success: true,
       data: { ...booking, isOverdue: isBookingOverdue(booking) },
     });
-  });
-
-  // GET /api/bookings/:id/qr  – returns a PNG QR code for the booking
-  router.get("/:id/qr", async (req, res) => {
-    const booking = await bookingsDB.getById(req.params.id);
-    if (!booking) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Booking not found." });
-    }
-    try {
-      const qrData = JSON.stringify({
-        bookingId: booking.id,
-        resourceId: booking.resourceId,
-        borrower: booking.borrower,
-        status: booking.status,
-      });
-      const format = req.query.format === "svg" ? "svg" : "png";
-      if (format === "svg") {
-        const svg = await QRCode.toString(qrData, { type: "svg" });
-        res.setHeader("Content-Type", "image/svg+xml");
-        return res.send(svg);
-      }
-      const buffer = await QRCode.toBuffer(qrData, { type: "png", width: 300 });
-      res.setHeader("Content-Type", "image/png");
-      res.send(buffer);
-    } catch (err) {
-      console.error("[QR] Generation failed:", err);
-      res
-        .status(500)
-        .json({ success: false, message: "QR code generation failed." });
-    }
-  });
-
-  // GET /api/bookings/:id/return-via-qr - show admin confirmation form
-  router.get("/:id/return-via-qr", async (req, res) => {
-    try {
-      const booking = await bookingsDB.getById(req.params.id);
-      if (!booking) {
-        return res.status(404).send("<h2>Booking not found.</h2>");
-      }
-      const statusMsg =
-        booking.status === "active"
-          ? "Admin confirmation required to return this booking."
-          : `Booking is already ${booking.status}.`;
-
-      return res.send(`
-      <html>
-        <head>
-          <meta name="viewport" content="width=device-width, initial-scale=1" />
-          <title>Return Booking</title>
-          <style>
-            body { font-family: Arial, sans-serif; padding: 24px; max-width: 520px; margin: 0 auto; }
-            .card { border: 1px solid #e0e0e0; border-radius: 8px; padding: 16px; }
-            label { display: block; font-size: 14px; margin-top: 12px; }
-            input { width: 100%; padding: 10px; margin-top: 6px; box-sizing: border-box; }
-            button { width: 100%; padding: 12px; margin-top: 16px; background: #333; color: #fff; border: none; border-radius: 6px; }
-          </style>
-        </head>
-        <body>
-          <h2>Return Booking</h2>
-          <p>${escapeHtml(statusMsg)}</p>
-          <div class="card">
-            <form method="POST" action="/api/bookings/${escapeHtml(booking.id)}/return-via-qr">
-              <label for="email">Staff/Admin Email</label>
-              <input id="email" name="email" type="email" required />
-              <label for="password">Password</label>
-              <input id="password" name="password" type="password" required />
-              <button type="submit">Confirm Return</button>
-            </form>
-          </div>
-        </body>
-      </html>
-    `);
-    } catch (err) {
-      console.error(
-        "[Bookings] return-via-qr failed for id:",
-        req.params.id,
-        err,
-      );
-      return res
-        .status(500)
-        .send(
-          "<h2>Server Error</h2><p>Failed to load return page. Please try again later.</p>",
-        );
-    }
-  });
-
-  // POST /api/bookings/:id/return-via-qr - staff/admin confirmation and return
-  router.post("/:id/return-via-qr", async (req, res) => {
-    try {
-      const booking = await bookingsDB.getById(req.params.id);
-      if (!booking) {
-        return res.status(404).send("<h2>Booking not found.</h2>");
-      }
-
-      const { email, password } = req.body;
-      if (!email || !password) {
-        return res
-          .status(400)
-          .send("<h2>Email and password are required.</h2>");
-      }
-      if (!(await isAllowedEmail(email))) {
-        return res
-          .status(403)
-          .send("<h2>This email is not on the whitelist.</h2>");
-      }
-
-      const user = await usersDB.getByEmail(email);
-      if (
-        !user ||
-        (user.role !== "admin" && user.role !== "staff") ||
-        !user.password_hash
-      ) {
-        return res.status(403).send("<h2>Staff or admin access required.</h2>");
-      }
-
-      const ok = await bcrypt.compare(password, user.password_hash);
-      if (!ok) {
-        return res.status(401).send("<h2>Invalid credentials.</h2>");
-      }
-
-      if (booking.status !== "active") {
-        return res.send(
-          `<h2>No action needed.</h2><p>Booking ${booking.id} is already ${booking.status}.</p>`,
-        );
-      }
-
-      const updated = await bookingsDB.update(req.params.id, {
-        status: "returned",
-        actualReturnTime: new Date().toISOString(),
-      });
-      const resource = await resourcesDB.getById(booking.resourceId);
-      if (resource) notifyBookingReturned(updated, resource).catch(() => {});
-
-      return res.send(
-        `<h2>Return successful.</h2><p>Booking ${updated.id} has been marked as returned.</p>`,
-      );
-    } catch (err) {
-      console.error(
-        "[Bookings] return-via-qr POST failed for id:",
-        req.params.id,
-        err,
-      );
-      return res
-        .status(500)
-        .send(
-          "<h2>Server Error</h2><p>Failed to process return. Please try again.</p>",
-        );
-    }
   });
 
   // POST /api/bookings - create new booking

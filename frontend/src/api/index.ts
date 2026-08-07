@@ -162,14 +162,6 @@ export async function returnAllForResource(
   return res.data.data;
 }
 
-/** Returns the URL for a booking's QR code image */
-export function getBookingQrUrl(
-  id: string,
-  format: "png" | "svg" = "svg",
-): string {
-  return `${API_BASE_URL}/api/bookings/${id}/qr?format=${format}`;
-}
-
 // ── Stats ─────────────────────────────────────────────────────────────────────
 
 export async function fetchStats(schoolId?: string): Promise<Stats> {
@@ -389,8 +381,79 @@ export async function cancelAdminPromotion(email: string): Promise<void> {
   );
 }
 
-export function getGoogleLoginUrl(): string {
-  return `${API_BASE_URL}/api/auth/google`;
+// ── Passkeys (WebAuthn) ───────────────────────────────────────────────────────
+
+export interface PasskeySummary {
+  credentialId: string;
+  deviceLabel: string;
+  createdAt: string | null;
+  lastUsedAt: string | null;
+}
+
+/** Step 1 of adding a passkey. Requires an authenticated session. */
+export async function fetchPasskeyRegistrationOptions(): Promise<{
+  options: any;
+  challengeId: string;
+}> {
+  const res = await api.post<{
+    success: boolean;
+    data: { options: any; challengeId: string };
+  }>("/api/auth/passkeys/register/options");
+  return res.data.data;
+}
+
+/** Step 2 of adding a passkey. */
+export async function verifyPasskeyRegistration(
+  response: any,
+  challengeId: string,
+): Promise<void> {
+  await api.post("/api/auth/passkeys/register/verify", {
+    response,
+    challengeId,
+  });
+}
+
+/**
+ * Step 1 of signing in with a passkey. Omit the email to let the browser
+ * offer whichever passkeys it already holds for this site (the one-tap flow).
+ */
+export async function fetchPasskeyLoginOptions(email?: string): Promise<{
+  options: any;
+  challengeId: string;
+}> {
+  const res = await api.post<{
+    success: boolean;
+    data: { options: any; challengeId: string };
+  }>("/api/auth/passkeys/login/options", email ? { email } : {});
+  return res.data.data;
+}
+
+/** Step 2 of signing in with a passkey. */
+export async function verifyPasskeyLogin(
+  response: any,
+  challengeId: string,
+  rememberMe?: boolean,
+): Promise<{ user: AuthUser; token: string }> {
+  const res = await api.post<{
+    success: boolean;
+    data: { user: AuthUser; token: string };
+  }>("/api/auth/passkeys/login/verify", {
+    response,
+    challengeId,
+    rememberMe,
+  });
+  return res.data.data;
+}
+
+export async function fetchPasskeys(): Promise<PasskeySummary[]> {
+  const res = await api.get<{ success: boolean; data: PasskeySummary[] }>(
+    "/api/auth/passkeys",
+  );
+  return res.data.data;
+}
+
+export async function deletePasskey(credentialId: string): Promise<void> {
+  await api.delete(`/api/auth/passkeys/${encodeURIComponent(credentialId)}`);
 }
 
 /** Public: apply to be added to the whitelist (no auth required). */

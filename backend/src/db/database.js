@@ -295,7 +295,19 @@ function buildSeedBookings() {
 async function initPostgres() {
   const { Pool } = require("pg");
 
-  console.log("[DB] Initializing PostgreSQL connection...");
+  // On Vercel every request may land on its own function instance, and each
+  // instance would otherwise open a full pool. Multiplied across instances
+  // that exhausts Supabase's pooler, so a serverless instance keeps exactly
+  // one connection. A long-lived server (Render, local) still gets a pool.
+  //
+  // This assumes DATABASE_URL points at Supabase's *transaction mode* pooler
+  // (port 6543). See HANDOVER.md §9.2 — the direct connection on 5432 will
+  // run out of backends under serverless traffic.
+  const isServerless = !!process.env.VERCEL;
+
+  console.log(
+    `[DB] Initializing PostgreSQL connection (${isServerless ? "serverless" : "long-lived"})...`,
+  );
   pgPool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl:
@@ -304,7 +316,7 @@ async function initPostgres() {
         : { rejectUnauthorized: false },
     connectionTimeoutMillis: 10000,
     idleTimeoutMillis: 10000,
-    max: 5,
+    max: isServerless ? 1 : 5,
   });
 
   pgPool.on("error", (err) => {
@@ -416,6 +428,28 @@ async function initPostgres() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       PRIMARY KEY (email, voter_email)
     );
+
+    CREATE TABLE IF NOT EXISTS passkey_credentials (
+      credential_id TEXT PRIMARY KEY,
+      user_email TEXT NOT NULL,
+      public_key TEXT NOT NULL,
+      counter BIGINT NOT NULL DEFAULT 0,
+      transports TEXT NOT NULL DEFAULT '',
+      device_label TEXT NOT NULL DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      last_used_at TIMESTAMPTZ
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_passkey_user
+      ON passkey_credentials (user_email);
+
+    CREATE TABLE IF NOT EXISTS webauthn_challenges (
+      id TEXT PRIMARY KEY,
+      email TEXT,
+      challenge TEXT NOT NULL,
+      purpose TEXT NOT NULL,
+      expires_at TIMESTAMPTZ NOT NULL
+    );
   `);
 
   await pgPool.query(`
@@ -430,6 +464,8 @@ async function initPostgres() {
     ALTER TABLE IF EXISTS whitelist_requests ENABLE ROW LEVEL SECURITY;
     ALTER TABLE IF EXISTS admin_promotion_requests ENABLE ROW LEVEL SECURITY;
     ALTER TABLE IF EXISTS admin_promotion_votes ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE IF EXISTS passkey_credentials ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE IF EXISTS webauthn_challenges ENABLE ROW LEVEL SECURITY;
   `);
 
   await pgPool.query(
@@ -506,7 +542,26 @@ async function initPostgres() {
 }
 
 function initSqlite() {
-  const Database = require("better-sqlite3");
+  // better-sqlite3 is a devDependency: it is only ever used for local
+  // development, and it is a native module that must not be pulled into the
+  // Vercel serverless bundle (wrong platform, and nothing there would call it
+  // because DATABASE_URL is always set in production).
+  //
+  // Requiring it through a variable also keeps Vercel's static dependency
+  // tracer from trying to resolve and bundle it.
+  let Database;
+  try {
+    const sqliteModule = "better-sqlite3";
+    Database = require(sqliteModule);
+  } catch (err) {
+    throw new Error(
+      "No DATABASE_URL is set, so the app tried to fall back to SQLite, but " +
+        "better-sqlite3 is not installed. Either set DATABASE_URL to a " +
+        "PostgreSQL connection string, or install dev dependencies with " +
+        "`npm install --prefix backend`. Original error: " +
+        err.message,
+    );
+  }
 
   const dbPath =
     process.env.DB_PATH ||
@@ -621,6 +676,28 @@ function initSqlite() {
       voter_email TEXT NOT NULL,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       PRIMARY KEY (email, voter_email)
+    );
+
+    CREATE TABLE IF NOT EXISTS passkey_credentials (
+      credential_id TEXT PRIMARY KEY,
+      user_email TEXT NOT NULL,
+      public_key TEXT NOT NULL,
+      counter INTEGER NOT NULL DEFAULT 0,
+      transports TEXT NOT NULL DEFAULT '',
+      device_label TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      last_used_at TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_passkey_user
+      ON passkey_credentials (user_email);
+
+    CREATE TABLE IF NOT EXISTS webauthn_challenges (
+      id TEXT PRIMARY KEY,
+      email TEXT,
+      challenge TEXT NOT NULL,
+      purpose TEXT NOT NULL,
+      expires_at TEXT NOT NULL
     );
   `);
 
@@ -1626,58 +1703,6 @@ const usersDB = {
     return this.getByEmail(email);
   },
 
-  async upsertGoogleUser({
-    email,
-    name,
-    googleId,
-    role,
-    schoolId = "school-default",
-  }) {
-    await ensureInit();
-    const normalized = (email || "").toLowerCase();
-    if (!normalized || !googleId) return null;
-    const displayName = name || normalized.split("@")[0];
-    const id = `google-${googleId}`;
-
-    if (USE_POSTGRES) {
-      await pgPool.query(
-        `INSERT INTO users (id, school_id, email, name, role, google_id)
-         VALUES ($1, $2, $3, $4, $5, $6)
-         ON CONFLICT (email) DO UPDATE SET
-           name = EXCLUDED.name,
-           google_id = EXCLUDED.google_id,
-           role = CASE
-             WHEN users.role = 'admin' THEN users.role
-             ELSE EXCLUDED.role
-           END`,
-        [id, schoolId, normalized, displayName, role, googleId],
-      );
-      return this.getByEmail(normalized);
-    }
-
-    sqlite
-      .prepare(
-        `INSERT INTO users (id, school_id, email, name, role, google_id)
-       VALUES (@id, @schoolId, @email, @name, @role, @googleId)
-       ON CONFLICT(email) DO UPDATE SET
-         name = excluded.name,
-         google_id = excluded.google_id,
-         role = CASE
-           WHEN users.role = 'admin' THEN users.role
-           ELSE excluded.role
-         END`,
-      )
-      .run({
-        id,
-        schoolId,
-        email: normalized,
-        name: displayName,
-        role,
-        googleId,
-      });
-    return this.getByEmail(normalized);
-  },
-
   async getAll() {
     await ensureInit();
     if (USE_POSTGRES) {
@@ -1699,6 +1724,9 @@ const usersDB = {
     await ensureInit();
     const normalized = (email || "").toLowerCase();
     if (!normalized) return;
+    // Passkeys are keyed by email, so they must go with the account. Leaving
+    // them behind would let a deleted user sign back in with their passkey.
+    await passkeysDB.removeAllForUser(normalized);
     if (USE_POSTGRES) {
       await pgPool.query("DELETE FROM users WHERE LOWER(email) = $1", [
         normalized,
@@ -2202,6 +2230,207 @@ const whitelistRequestsDB = {
   },
 };
 
+/**
+ * Passkey (WebAuthn) credentials and the short-lived challenges used to
+ * register or authenticate them.
+ *
+ * Credentials are keyed by the user's email rather than their row id so that
+ * an admin resetting an account does not silently orphan the passkeys.
+ * `public_key` is stored base64url-encoded because both backends here are
+ * happier with TEXT than with binary columns.
+ */
+const passkeysDB = {
+  async getByUserEmail(email) {
+    await ensureInit();
+    const normalized = (email || "").toLowerCase();
+    if (!normalized) return [];
+    if (USE_POSTGRES) {
+      const result = await pgPool.query(
+        "SELECT * FROM passkey_credentials WHERE LOWER(user_email) = $1 ORDER BY created_at",
+        [normalized],
+      );
+      return result.rows;
+    }
+    return sqlite
+      .prepare(
+        "SELECT * FROM passkey_credentials WHERE LOWER(user_email) = ? ORDER BY created_at",
+      )
+      .all(normalized);
+  },
+
+  async getByCredentialId(credentialId) {
+    await ensureInit();
+    if (!credentialId) return null;
+    if (USE_POSTGRES) {
+      const result = await pgPool.query(
+        "SELECT * FROM passkey_credentials WHERE credential_id = $1",
+        [credentialId],
+      );
+      return result.rows[0] || null;
+    }
+    return (
+      sqlite
+        .prepare("SELECT * FROM passkey_credentials WHERE credential_id = ?")
+        .get(credentialId) || null
+    );
+  },
+
+  async create({
+    credentialId,
+    userEmail,
+    publicKey,
+    counter,
+    transports,
+    deviceLabel,
+  }) {
+    await ensureInit();
+    const normalized = (userEmail || "").toLowerCase();
+    if (USE_POSTGRES) {
+      await pgPool.query(
+        `INSERT INTO passkey_credentials
+           (credential_id, user_email, public_key, counter, transports, device_label)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         ON CONFLICT (credential_id) DO NOTHING`,
+        [
+          credentialId,
+          normalized,
+          publicKey,
+          counter || 0,
+          (transports || []).join(","),
+          deviceLabel || "",
+        ],
+      );
+      return this.getByCredentialId(credentialId);
+    }
+    sqlite
+      .prepare(
+        `INSERT OR IGNORE INTO passkey_credentials
+           (credential_id, user_email, public_key, counter, transports, device_label)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        credentialId,
+        normalized,
+        publicKey,
+        counter || 0,
+        (transports || []).join(","),
+        deviceLabel || "",
+      );
+    return this.getByCredentialId(credentialId);
+  },
+
+  async updateCounter(credentialId, counter) {
+    await ensureInit();
+    if (USE_POSTGRES) {
+      await pgPool.query(
+        "UPDATE passkey_credentials SET counter = $1, last_used_at = NOW() WHERE credential_id = $2",
+        [counter, credentialId],
+      );
+      return;
+    }
+    sqlite
+      .prepare(
+        "UPDATE passkey_credentials SET counter = ?, last_used_at = datetime('now') WHERE credential_id = ?",
+      )
+      .run(counter, credentialId);
+  },
+
+  /** Scoped to the owner's email so one user can never delete another's key. */
+  async remove(credentialId, userEmail) {
+    await ensureInit();
+    const normalized = (userEmail || "").toLowerCase();
+    if (USE_POSTGRES) {
+      const result = await pgPool.query(
+        "DELETE FROM passkey_credentials WHERE credential_id = $1 AND LOWER(user_email) = $2",
+        [credentialId, normalized],
+      );
+      return result.rowCount > 0;
+    }
+    const info = sqlite
+      .prepare(
+        "DELETE FROM passkey_credentials WHERE credential_id = ? AND LOWER(user_email) = ?",
+      )
+      .run(credentialId, normalized);
+    return info.changes > 0;
+  },
+
+  async removeAllForUser(email) {
+    await ensureInit();
+    const normalized = (email || "").toLowerCase();
+    if (!normalized) return;
+    if (USE_POSTGRES) {
+      await pgPool.query(
+        "DELETE FROM passkey_credentials WHERE LOWER(user_email) = $1",
+        [normalized],
+      );
+      return;
+    }
+    sqlite
+      .prepare("DELETE FROM passkey_credentials WHERE LOWER(user_email) = ?")
+      .run(normalized);
+  },
+
+  // ── Challenges ────────────────────────────────────────────────────────────
+
+  async saveChallenge({ id, email, challenge, purpose, expiresAt }) {
+    await ensureInit();
+    if (USE_POSTGRES) {
+      await pgPool.query(
+        `INSERT INTO webauthn_challenges (id, email, challenge, purpose, expires_at)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [id, email ? email.toLowerCase() : null, challenge, purpose, expiresAt],
+      );
+      return;
+    }
+    sqlite
+      .prepare(
+        `INSERT INTO webauthn_challenges (id, email, challenge, purpose, expires_at)
+         VALUES (?, ?, ?, ?, ?)`,
+      )
+      .run(id, email ? email.toLowerCase() : null, challenge, purpose, expiresAt);
+  },
+
+  /**
+   * Fetch a challenge and delete it in the same call — a challenge is
+   * single-use, so consuming it here removes any window for replay.
+   * Returns null when missing or expired.
+   */
+  async consumeChallenge(id, purpose) {
+    await ensureInit();
+    if (!id) return null;
+    if (USE_POSTGRES) {
+      const result = await pgPool.query(
+        `DELETE FROM webauthn_challenges
+         WHERE id = $1 AND purpose = $2 AND expires_at > NOW()
+         RETURNING *`,
+        [id, purpose],
+      );
+      return result.rows[0] || null;
+    }
+    const row = sqlite
+      .prepare(
+        "SELECT * FROM webauthn_challenges WHERE id = ? AND purpose = ? AND expires_at > ?",
+      )
+      .get(id, purpose, new Date().toISOString());
+    sqlite.prepare("DELETE FROM webauthn_challenges WHERE id = ?").run(id);
+    return row || null;
+  },
+
+  /** Housekeeping so abandoned sign-in attempts do not accumulate forever. */
+  async purgeExpiredChallenges() {
+    await ensureInit();
+    if (USE_POSTGRES) {
+      await pgPool.query(
+        "DELETE FROM webauthn_challenges WHERE expires_at <= NOW()",
+      );
+      return;
+    }
+    sqlite
+      .prepare("DELETE FROM webauthn_challenges WHERE expires_at <= ?")
+      .run(new Date().toISOString());
+  },
+};
+
 const schoolsDB = {
   async getAll() {
     await ensureInit();
@@ -2265,6 +2494,7 @@ module.exports = {
   whitelistRemovalDB,
   adminPromotionDB,
   whitelistRequestsDB,
+  passkeysDB,
   schoolsDB,
   ready: ensureInit,
 };

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   applyForWhitelist,
   AuthUser,
@@ -7,6 +7,17 @@ import {
   resetPassword,
   signupWithEmail,
 } from "../api";
+import {
+  offerToSavePassword,
+  waitForPasswordPrompt,
+} from "../utils/browserCredentials";
+import {
+  describePasskeyError,
+  isUserCancellation,
+  loginWithPasskey,
+  supportsPasskeyAutofill,
+  supportsPasskeys,
+} from "../utils/passkeys";
 
 interface Props {
   onLogin: (token: string, user: AuthUser) => void;
@@ -39,6 +50,72 @@ export default function LoginForm({ onLogin }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [rememberMe, setRememberMe] = useState(true);
+  const [passkeyAvailable, setPasskeyAvailable] = useState(false);
+  const [passkeyLoading, setPasskeyLoading] = useState(false);
+
+  const finishPasskeyLogin = useCallback(
+    (token: string, user: AuthUser) => {
+      localStorage.setItem("auth_token", token);
+      localStorage.setItem("auth_user", JSON.stringify(user));
+      onLogin(token, user);
+    },
+    [onLogin],
+  );
+
+  useEffect(() => {
+    setPasskeyAvailable(supportsPasskeys());
+  }, []);
+
+  /**
+   * Conditional UI: park a passkey request in the background so any passkey
+   * this browser holds shows up in the email field's autofill dropdown. It
+   * resolves only if the teacher picks one — otherwise it stays pending for
+   * the life of the form, which is expected and not an error.
+   */
+  useEffect(() => {
+    if (mode !== "login") return;
+    let cancelled = false;
+
+    (async () => {
+      if (!supportsPasskeys() || !(await supportsPasskeyAutofill())) return;
+      try {
+        const { user, token } = await loginWithPasskey({
+          rememberMe: true,
+          useAutofill: true,
+        });
+        if (!cancelled) finishPasskeyLogin(token, user);
+      } catch (err) {
+        // A pending autofill request is aborted whenever the teacher submits
+        // the password form or leaves — never surface that as a failure.
+        if (!cancelled && !isUserCancellation(err)) {
+          const msg = describePasskeyError(err);
+          if (msg) setError(msg);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [mode, finishPasskeyLogin]);
+
+  const handlePasskeyLogin = async () => {
+    setPasskeyLoading(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const { user, token } = await loginWithPasskey({
+        email: email || undefined,
+        rememberMe,
+      });
+      finishPasskeyLogin(token, user);
+    } catch (err: any) {
+      const msg = describePasskeyError(err);
+      if (msg) setError(msg);
+    } finally {
+      setPasskeyLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,6 +126,10 @@ export default function LoginForm({ onLogin }: Props) {
       const { user, token } = await loginWithEmail(email, password, rememberMe);
       localStorage.setItem("auth_token", token);
       localStorage.setItem("auth_user", JSON.stringify(user));
+      // Ask the browser to remember this so the teacher does not retype it
+      // next time. Must happen before onLogin() unmounts the form.
+      await offerToSavePassword({ email, password, name: user.name });
+      await waitForPasswordPrompt();
       onLogin(token, user);
     } catch (err: any) {
       const msg =
@@ -151,9 +232,18 @@ export default function LoginForm({ onLogin }: Props) {
           book: signupBook.trim(),
           color: signupColor.trim(),
         },
+        rememberMe,
       );
       localStorage.setItem("auth_token", token);
       localStorage.setItem("auth_user", JSON.stringify(user));
+      // Offer to save straight after sign-up: this is the one moment we know
+      // the teacher has just chosen a password they have not written down.
+      await offerToSavePassword({
+        email: signupEmail,
+        password: signupPassword,
+        name: user.name,
+      });
+      await waitForPasswordPrompt();
       onLogin(token, user);
     } catch (err: any) {
       const status = err?.response?.status;
@@ -207,6 +297,7 @@ export default function LoginForm({ onLogin }: Props) {
             <input
               type="email"
               value={email}
+              autoComplete="username webauthn"
               onChange={(e) => setEmail(e.target.value)}
               placeholder="your-email@cloud.edu.pe.ca"
               className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
@@ -221,6 +312,7 @@ export default function LoginForm({ onLogin }: Props) {
             <input
               type="password"
               value={password}
+              autoComplete="current-password"
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Your password"
               className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
@@ -249,6 +341,36 @@ export default function LoginForm({ onLogin }: Props) {
           >
             {loading ? "Signing in…" : "Sign In"}
           </button>
+
+          {passkeyAvailable && (
+            <>
+              <div className="flex items-center gap-3">
+                <span className="flex-1 h-px bg-gray-200" />
+                <span className="text-xs text-gray-400">or</span>
+                <span className="flex-1 h-px bg-gray-200" />
+              </div>
+              <button
+                type="button"
+                onClick={handlePasskeyLogin}
+                disabled={passkeyLoading || loading}
+                className="w-full py-2 rounded border text-sm font-medium transition-colors hover:bg-gray-50 flex items-center justify-center gap-2"
+                style={{
+                  borderColor: "#333",
+                  color: "#333",
+                  opacity: passkeyLoading ? 0.7 : 1,
+                }}
+              >
+                {passkeyLoading
+                  ? "Waiting for your device…"
+                  : "🔑 Sign in with a passkey"}
+              </button>
+              <p className="text-xs text-gray-400 text-center">
+                Use your fingerprint, face, or screen lock — no password to
+                remember.
+              </p>
+            </>
+          )}
+
           <button
             type="button"
             onClick={() => setMode("forgot")}
@@ -271,6 +393,7 @@ export default function LoginForm({ onLogin }: Props) {
             <input
               type="email"
               value={forgotEmail}
+              autoComplete="username"
               onChange={(e) => setForgotEmail(e.target.value)}
               placeholder="your-email@cloud.edu.pe.ca"
               className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
@@ -285,6 +408,7 @@ export default function LoginForm({ onLogin }: Props) {
             <input
               type="text"
               value={forgotFood}
+              autoComplete="off"
               onChange={(e) => setForgotFood(e.target.value)}
               placeholder="Your answer"
               className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
@@ -299,6 +423,7 @@ export default function LoginForm({ onLogin }: Props) {
             <input
               type="text"
               value={forgotBook}
+              autoComplete="off"
               onChange={(e) => setForgotBook(e.target.value)}
               placeholder="Your answer"
               className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
@@ -313,6 +438,7 @@ export default function LoginForm({ onLogin }: Props) {
             <input
               type="text"
               value={forgotColor}
+              autoComplete="off"
               onChange={(e) => setForgotColor(e.target.value)}
               placeholder="Your answer"
               className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
@@ -351,6 +477,7 @@ export default function LoginForm({ onLogin }: Props) {
             <input
               type="password"
               value={newPassword}
+              autoComplete="new-password"
               onChange={(e) => setNewPassword(e.target.value)}
               placeholder="At least 8 characters"
               className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
@@ -403,6 +530,7 @@ export default function LoginForm({ onLogin }: Props) {
             <input
               type="text"
               value={signupName}
+              autoComplete="name"
               onChange={(e) => setSignupName(e.target.value)}
               placeholder="Your name"
               className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
@@ -416,6 +544,7 @@ export default function LoginForm({ onLogin }: Props) {
             <input
               type="email"
               value={signupEmail}
+              autoComplete="username"
               onChange={(e) => setSignupEmail(e.target.value)}
               placeholder="your-email@cloud.edu.pe.ca"
               className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
@@ -430,6 +559,7 @@ export default function LoginForm({ onLogin }: Props) {
             <input
               type="password"
               value={signupPassword}
+              autoComplete="new-password"
               onChange={(e) => setSignupPassword(e.target.value)}
               placeholder="At least 8 characters"
               className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
@@ -444,6 +574,7 @@ export default function LoginForm({ onLogin }: Props) {
             <input
               type="password"
               value={signupConfirm}
+              autoComplete="new-password"
               onChange={(e) => setSignupConfirm(e.target.value)}
               placeholder="Repeat password"
               className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
@@ -459,6 +590,7 @@ export default function LoginForm({ onLogin }: Props) {
             <input
               type="text"
               value={signupFood}
+              autoComplete="off"
               onChange={(e) => setSignupFood(e.target.value)}
               placeholder="Used for password recovery"
               className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
@@ -477,6 +609,7 @@ export default function LoginForm({ onLogin }: Props) {
             <input
               type="text"
               value={signupBook}
+              autoComplete="off"
               onChange={(e) => setSignupBook(e.target.value)}
               placeholder="Used for password recovery"
               className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
@@ -495,6 +628,7 @@ export default function LoginForm({ onLogin }: Props) {
             <input
               type="text"
               value={signupColor}
+              autoComplete="off"
               onChange={(e) => setSignupColor(e.target.value)}
               placeholder="Used for password recovery"
               className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
@@ -515,6 +649,15 @@ export default function LoginForm({ onLogin }: Props) {
             identity if you forget your password — they are never stored in
             plain text.
           </div>
+          <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              className="accent-gray-800"
+            />
+            Keep me signed in for 30 days
+          </label>
           <button
             type="submit"
             disabled={loading}
@@ -576,6 +719,7 @@ export default function LoginForm({ onLogin }: Props) {
             <input
               type="email"
               value={applyEmail}
+              autoComplete="email"
               onChange={(e) => setApplyEmail(e.target.value)}
               placeholder="your-email@cloud.edu.pe.ca"
               className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"

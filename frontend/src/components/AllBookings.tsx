@@ -27,6 +27,7 @@ const AllBookings: React.FC<AllBookingsProps> = ({
     "all",
   );
   const [actionError, setActionError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), 400);
@@ -42,6 +43,7 @@ const AllBookings: React.FC<AllBookingsProps> = ({
   const load = useCallback(async () => {
     try {
       setLoading(true);
+      setLoadError(null);
       const params: Record<string, string> = {};
       if (statusFilter !== "all") params.status = statusFilter;
       if (debouncedSearch.trim()) params.search = debouncedSearch.trim();
@@ -51,6 +53,13 @@ const AllBookings: React.FC<AllBookingsProps> = ({
       ]);
       setBookings(fetchedBookings);
       setResources(fetchedResources);
+    } catch {
+      // Without this the list falls through to "No bookings found", which
+      // reads as "your booking is gone" rather than "the request failed".
+      setLoadError(
+        "Could not load bookings. The server may still be waking up — please try again in a moment.",
+      );
+      setBookings([]);
     } finally {
       setLoading(false);
     }
@@ -153,6 +162,20 @@ const AllBookings: React.FC<AllBookingsProps> = ({
           {bookings.length} booking{bookings.length !== 1 ? "s" : ""}
         </span>
       </div>
+
+      {/* Load error */}
+      {loadError && (
+        <div
+          className="rounded px-4 py-3 text-sm font-medium"
+          style={{
+            backgroundColor: "#f8d7da",
+            color: "#dc3545",
+            border: "1px solid #dc3545",
+          }}
+        >
+          ⚠️ {loadError}
+        </div>
+      )}
 
       {/* Bookings list */}
       {loading ? (

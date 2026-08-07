@@ -1,11 +1,8 @@
 /**
- * JWT authentication middleware and Google OAuth helpers.
+ * JWT authentication middleware.
  *
  * Configuration via environment variables:
  *   JWT_SECRET            – secret for signing JWTs (required in production)
- *   GOOGLE_CLIENT_ID      – Google OAuth 2.0 client ID
- *   GOOGLE_CLIENT_SECRET  – Google OAuth 2.0 client secret
- *   GOOGLE_CALLBACK_URL   – OAuth callback URL (e.g. http://localhost:4000/api/auth/google/callback)
  *   AUTH_BYPASS           – set to 'true' to skip auth in development
  *
  * When AUTH_BYPASS=true (or JWT_SECRET is not set), all requests are treated

@@ -21,10 +21,42 @@ body {
   display: none;
 }
 
-/* Ensure all interactive elements have a minimum 44px touch target on mobile */
+/*
+ * Inline edit buttons (the ✏️ pencils on resource cards).
+ *
+ * These used to be opacity-0 until :hover, which means they simply do not
+ * exist on a touch device — and teachers are on iPads and phones. Reveal on
+ * hover only where hovering is actually possible; show them permanently
+ * (dimmed) everywhere else.
+ */
+.edit-affordance {
+  opacity: 0.55;
+  transition: opacity 0.15s;
+}
+@media (hover: hover) and (pointer: fine) {
+  .edit-affordance {
+    opacity: 0;
+  }
+  .group:hover .edit-affordance,
+  .edit-affordance:focus-visible {
+    opacity: 1;
+  }
+}
+
+/*
+ * Minimum touch target. Apple and WCAG both put this at 44px; the previous
+ * value of 36px did not meet either.
+ */
 @media (max-width: 639px) {
   button, [role="button"] {
-    min-height: 36px;
+    min-height: 44px;
+  }
+  /* Inline pencils sit inside a line of text — sizing them to 44px would
+     break the layout, so they get padding for the tap area instead. */
+  .edit-affordance {
+    min-height: 0;
+    padding: 6px;
+    margin: -6px;
   }
 }
 

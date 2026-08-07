@@ -9,7 +9,7 @@ const express = require('express');
 const rateLimit = require('express-rate-limit');
 const { randomUUID } = require('node:crypto');
 const { schoolsDB } = require('../db/database');
-const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { requireAuth, requireAdmin, requireWhitelisted } = require('../middleware/auth');
 
 // 30 create-school requests per 15 minutes per IP
 const createSchoolLimiter = rateLimit({
@@ -24,12 +24,12 @@ module.exports = function createSchoolsRouter() {
   const router = express.Router();
 
   // GET /api/schools
-  router.get('/', async (req, res) => {
+  router.get('/', requireAuth, requireWhitelisted, async (req, res) => {
     res.json({ success: true, data: await schoolsDB.getAll() });
   });
 
   // GET /api/schools/:id
-  router.get('/:id', async (req, res) => {
+  router.get('/:id', requireAuth, requireWhitelisted, async (req, res) => {
     const school = await schoolsDB.getById(req.params.id);
     if (!school) {
       return res.status(404).json({ success: false, message: 'School not found.' });

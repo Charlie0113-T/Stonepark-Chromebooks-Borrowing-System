@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import "./App.css";
 import {
-  API_BASE_URL,
   addWhitelistEmail,
   AuthUser,
   deleteResource,
@@ -25,18 +24,16 @@ import CalendarView from "./components/CalendarView";
 import LoginForm from "./components/LoginForm";
 import SecuritySetupModal from "./components/SecuritySetupModal";
 import Modal from "./components/Modal";
+import PasskeyManager from "./components/PasskeyManager";
 import QRCodeGallery from "./components/QRCodeGallery";
 import ScanPage from "./components/ScanPage";
 import ResourceCard from "./components/ResourceCard";
 import StatsView from "./components/StatsView";
 import { StatusDot } from "./components/StatusBadge";
 import { RemovalRequest, Resource, Stats, WhitelistEntry } from "./types";
+import { clearServiceWorkerCaches } from "./utils/browserCredentials";
 
 type Tab = "dashboard" | "bookings" | "calendar" | "stats" | "qr";
-
-function envTrue(value: string | undefined) {
-  return (value || "").trim().toLowerCase() === "true";
-}
 
 function App() {
   const [resources, setResources] = useState<Resource[]>([]);
@@ -56,12 +53,12 @@ function App() {
       return null;
     }
   });
-  const [showLogin, setShowLogin] = useState(false);
   const [showSecuritySetup, setShowSecuritySetup] = useState(false);
-  const bypassAuth = !envTrue(process.env.REACT_APP_REQUIRE_AUTH);
+  const [securitySetupPending, setSecuritySetupPending] = useState(false);
 
   const [showWhitelist, setShowWhitelist] = useState(false);
   const [showStaff, setShowStaff] = useState(false);
+  const [showPasskeys, setShowPasskeys] = useState(false);
   const [whitelistEntries, setWhitelistEntries] = useState<WhitelistEntry[]>(
     [],
   );
@@ -90,6 +87,14 @@ function App() {
   >("all");
   const [searchQuery, setSearchQuery] = useState("");
 
+  const handleSessionExpired = useCallback(() => {
+    localStorage.removeItem("auth_token");
+    localStorage.removeItem("auth_user");
+    setAuthUser(null);
+    setError(null);
+    setLoading(false);
+  }, []);
+
   const loadData = useCallback(async () => {
     try {
       setError(null);
@@ -99,40 +104,43 @@ function App() {
       ]);
       setResources(res);
       setStats(st);
-    } catch {
-      const target = API_BASE_URL || "same-origin /api";
-      setError(`Failed to load data. Check backend/API URL: ${target}`);
+    } catch (err: any) {
+      // An expired session must drop the teacher back to sign-in rather than
+      // leaving them staring at an error they cannot act on.
+      if (err?.response?.status === 401) {
+        handleSessionExpired();
+        return;
+      }
+      // The API sleeps on Render's free plan and takes up to a minute to wake.
+      // That is by far the most common cause of a failure here, so say so in
+      // words a teacher can act on instead of printing the API URL at them.
+      setError(
+        "Could not reach the server. It may still be waking up — this can " +
+          "take up to a minute. Retrying automatically…",
+      );
     } finally {
       setLoading(false);
     }
-  }, [selectedSchool]);
+  }, [selectedSchool, handleSessionExpired]);
 
   useEffect(() => {
+    if (!authUser) return;
     loadData();
     const interval = setInterval(loadData, 30000);
     return () => clearInterval(interval);
-  }, [loadData]);
+  }, [loadData, authUser]);
 
   // Load schools for multi-school selector
   useEffect(() => {
+    if (!authUser) return;
     fetchSchools()
       .then(setSchools)
       .catch(() => {});
-  }, []);
+  }, [authUser]);
 
-  // Handle OAuth token in URL (after Google OAuth callback) and fetch current user
+  // Refresh the stored user from the server on load, so a role change or a
+  // pending security-question setup is picked up without a re-login.
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    // Also check URL fragment for token (more secure than query param)
-    const hashParams = new URLSearchParams(
-      window.location.hash.replace(/^#/, ""),
-    );
-    const urlToken = params.get("token") || hashParams.get("token");
-    if (urlToken) {
-      localStorage.setItem("auth_token", urlToken);
-      window.history.replaceState({}, "", window.location.pathname);
-    }
-
     const token = localStorage.getItem("auth_token");
     if (!token) return;
     fetchCurrentUser()
@@ -141,6 +149,7 @@ function App() {
         setAuthUser(user);
         if (user.needsSecuritySetup) {
           setShowSecuritySetup(true);
+          setSecuritySetupPending(true);
         }
       })
       .catch(() => {
@@ -188,14 +197,15 @@ function App() {
   const handleLogout = () => {
     localStorage.removeItem("auth_token");
     localStorage.removeItem("auth_user");
+    clearServiceWorkerCaches();
     setAuthUser(null);
   };
 
   const handleLogin = (_token: string, user: AuthUser) => {
     setAuthUser(user);
-    setShowLogin(false);
     if (user.needsSecuritySetup) {
       setShowSecuritySetup(true);
+      setSecuritySetupPending(true);
     }
   };
 
@@ -309,8 +319,10 @@ function App() {
     return <ScanPage resourceId={scanMatch[1]} />;
   }
 
-  // Show login gate when REACT_APP_REQUIRE_AUTH=true and user isn't logged in
-  if (!bypassAuth && !authUser) {
+  // Every read endpoint requires a whitelisted account, so there is nothing an
+  // anonymous visitor could be shown. Gating here also stops teachers from
+  // filling in a booking form only to have it rejected on submit.
+  if (!authUser) {
     return <LoginForm onLogin={handleLogin} />;
   }
 
@@ -381,9 +393,8 @@ function App() {
                 )}
               </div>
             )}
-            {/* Auth */}
-            {authUser ? (
-              <div className="flex flex-wrap items-center justify-end gap-1.5 text-xs text-gray-300">
+            {/* Auth — authUser is always set here; the login gate runs earlier. */}
+            <div className="flex flex-wrap items-center justify-end gap-1.5 text-xs text-gray-300">
                 <span className="hidden sm:inline">👤 {authUser.name}</span>
                 {authUser.role === "admin" && (
                   <>
@@ -402,20 +413,18 @@ function App() {
                   </>
                 )}
                 <button
+                  onClick={() => setShowPasskeys(true)}
+                  className="px-2 py-1 rounded border border-gray-400 text-gray-200 hover:bg-gray-600 text-xs"
+                >
+                  🔑 Passkeys
+                </button>
+                <button
                   onClick={handleLogout}
                   className="px-2 py-1 rounded border border-gray-400 text-gray-300 hover:bg-gray-600 text-xs"
                 >
                   Sign out
                 </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => setShowLogin(true)}
-                className="px-3 py-1.5 rounded border border-gray-400 text-gray-200 hover:bg-gray-600 text-xs font-medium"
-              >
-                Sign in
-              </button>
-            )}
+            </div>
           </div>
         </div>
       </header>
@@ -442,6 +451,27 @@ function App() {
                 </option>
               ))}
             </select>
+          </div>
+        </div>
+      )}
+
+      {/* Password-recovery reminder — shown until the answers are set, because
+          security questions are the only self-service way back into an
+          account if the password is forgotten. */}
+      {securitySetupPending && !showSecuritySetup && (
+        <div style={{ backgroundColor: "#fff3cd" }}>
+          <div className="max-w-6xl mx-auto px-4 py-2 flex flex-wrap items-center justify-between gap-2">
+            <span className="text-xs text-gray-800">
+              ⚠️ You have not set your password-recovery questions. Without
+              them you will need an admin to reset your password.
+            </span>
+            <button
+              onClick={() => setShowSecuritySetup(true)}
+              className="px-3 py-1 rounded text-xs font-medium flex-shrink-0"
+              style={{ backgroundColor: "#333333", color: "#fff" }}
+            >
+              Set them up
+            </button>
           </div>
         </div>
       )}
@@ -660,13 +690,6 @@ function App() {
         Stonepark Intermediate School — Chromebook Borrowing System
       </footer>
 
-      {/* Login Modal */}
-      {showLogin && (
-        <Modal title="Sign In" onClose={() => setShowLogin(false)}>
-          <LoginForm onLogin={handleLogin} />
-        </Modal>
-      )}
-
       {/* Booking Modal */}
       {bookingResource && (
         <Modal
@@ -702,6 +725,15 @@ function App() {
             onSuccess={handleAddResourceSuccess}
             onCancel={() => setShowAddResource(false)}
           />
+        </Modal>
+      )}
+
+      {showPasskeys && (
+        <Modal
+          title="Sign in without a password"
+          onClose={() => setShowPasskeys(false)}
+        >
+          <PasskeyManager />
         </Modal>
       )}
 
@@ -916,10 +948,12 @@ function App() {
         <SecuritySetupModal
           onComplete={() => {
             setShowSecuritySetup(false);
+            setSecuritySetupPending(false);
             setAuthUser((prev) =>
               prev ? { ...prev, needsSecuritySetup: false } : prev,
             );
           }}
+          onSkip={() => setShowSecuritySetup(false)}
         />
       )}
     </div>

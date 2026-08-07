@@ -39,7 +39,6 @@ export default function StaffManagement({ currentUser }: Props) {
   const [newEmail, setNewEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [newConfirm, setNewConfirm] = useState("");
-  const [newRole, setNewRole] = useState<"staff" | "admin">("staff");
   const [showNewPassword, setShowNewPassword] = useState(false);
 
   // Reset password form
@@ -66,11 +65,10 @@ export default function StaffManagement({ currentUser }: Props) {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchUsers();
-      console.log("[StaffManagement] fetchUsers returned:", data);
-      setUsers(data);
+      // Do not log the response: it is the full staff roster (names, emails,
+      // roles) and would sit in the browser console on a shared machine.
+      setUsers(await fetchUsers());
     } catch (err: any) {
-      console.error("[StaffManagement] fetchUsers failed:", err);
       setError(
         err?.response?.data?.message || "Failed to load users. Please retry.",
       );
@@ -86,7 +84,7 @@ export default function StaffManagement({ currentUser }: Props) {
         setPromotionRequests([]);
       }
     }
-  }, []);
+  }, [currentUser.role]);
 
   useEffect(() => {
     loadUsers();
@@ -113,14 +111,13 @@ export default function StaffManagement({ currentUser }: Props) {
         email: newEmail,
         password: newPassword,
         name: newName || undefined,
-        role: newRole,
+        role: "staff",
       });
       flashSuccess(`Account created for ${newEmail}.`);
       setNewName("");
       setNewEmail("");
       setNewPassword("");
       setNewConfirm("");
-      setNewRole("staff");
       setPanel("list");
       await loadUsers();
     } catch (err: any) {
@@ -240,7 +237,6 @@ export default function StaffManagement({ currentUser }: Props) {
     setNewEmail("");
     setNewPassword("");
     setNewConfirm("");
-    setNewRole("staff");
     setError(null);
     setPanel("create");
   };

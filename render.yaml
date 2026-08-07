@@ -29,22 +29,26 @@ services:
         sync: false
       - key: STAFF_USERS
         sync: false
+      # Left unset, the API allows every origin (see backend/index.js). Pin it
+      # to the frontend teachers actually use.
       - key: CORS_ORIGIN
-        sync: false
-      - key: FRONTEND_URL
-        sync: false
+        value: https://stonepark-chromebook-manager.vercel.app
       - key: DATABASE_URL
         fromDatabase:
           name: stonepark-db
           property: connectionString
       - key: JWT_SECRET
         generateValue: true
-      - key: GOOGLE_CLIENT_ID
-        sync: false
-      - key: GOOGLE_CLIENT_SECRET
-        sync: false
-      - key: GOOGLE_CALLBACK_URL
-        sync: false
+      # WEBAUTHN_RP_ID is the FRONTEND domain (not this API's domain) — the
+      # host teachers actually visit. Passkeys are permanently bound to it:
+      # changing this value invalidates every staff passkey and forces
+      # everyone to re-register. Do not edit without planning that migration.
+      - key: WEBAUTHN_RP_ID
+        value: stonepark-chromebook-manager.vercel.app
+      - key: WEBAUTHN_ORIGIN
+        value: https://stonepark-chromebook-manager.vercel.app
+      - key: WEBAUTHN_RP_NAME
+        value: Stonepark Chromebook Manager
       - key: SMTP_HOST
         sync: false
       - key: SMTP_PORT

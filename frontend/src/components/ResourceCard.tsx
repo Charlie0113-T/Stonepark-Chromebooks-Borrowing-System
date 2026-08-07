@@ -2,7 +2,7 @@ import React, { useRef, useState } from "react";
 import { QRCodeCanvas } from "qrcode.react";
 import { Resource } from "../types";
 import { StatusBadge } from "./StatusBadge";
-import { updateResource, API_BASE_URL } from "../api";
+import { updateResource } from "../api";
 
 interface ResourceCardProps {
   resource: Resource;
@@ -48,10 +48,15 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
     link.remove();
   };
 
-  const buildReturnUrl = () => {
-    const base = API_BASE_URL || window.location.origin;
-    return `${base}/api/resources/${encodeURIComponent(resource.id)}/return-via-qr`;
-  };
+  /**
+   * Must stay identical to QRCodeGallery's URL: a cabinet has exactly one QR
+   * code, and both places offer a download under the same filename. They used
+   * to differ — one pointed at a server-rendered password form, the other at
+   * the stay-signed-in scan page — so which behaviour a cabinet got depended
+   * on which screen the sticker was printed from.
+   */
+  const buildReturnUrl = () =>
+    `${window.location.origin}/scan/${encodeURIComponent(resource.id)}`;
 
   const isAvailable = resource.status !== "full";
   const utilisationPct =
@@ -233,7 +238,7 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
                     setEditingName(true);
                     setEditError(null);
                   }}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-gray-600 text-sm"
+                  className="edit-affordance text-gray-400 hover:text-gray-600 text-sm px-1"
                   title="Edit name"
                 >
                   ✏️
@@ -288,7 +293,7 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
                         setEditingRoom(true);
                         setEditError(null);
                       }}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-gray-600 text-sm"
+                      className="edit-affordance text-gray-400 hover:text-gray-600 text-sm px-1"
                       title="Edit address"
                     >
                       ✏️
@@ -366,7 +371,7 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
                   setEditingDescription(true);
                   setEditError(null);
                 }}
-                className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-gray-600 text-sm"
+                className="edit-affordance text-gray-400 hover:text-gray-600 text-sm px-1"
                 title="Edit description"
               >
                 ✏️

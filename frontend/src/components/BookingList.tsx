@@ -8,6 +8,13 @@ import {
 import { Booking, Resource, ResourceHistoryEntry } from "../types";
 import { format } from "date-fns";
 
+/** Maps the stored field name to what a teacher would call it. */
+const FIELD_LABELS: Record<string, string> = {
+  name: "Name",
+  classRoom: "Address",
+  description: "Description",
+};
+
 interface BookingListProps {
   resource: Resource;
   onClose: () => void;
@@ -25,16 +32,22 @@ const BookingList: React.FC<BookingListProps> = ({
   );
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = async () => {
     try {
       setLoading(true);
+      setLoadError(null);
       const [bookingData, historyData] = await Promise.all([
         fetchBookings({ resourceId: resource.id }),
         fetchResourceHistory(resource.id),
       ]);
       setBookings(bookingData);
       setHistoryEntries(historyData);
+    } catch {
+      setLoadError("Could not load history. Please close and try again.");
+      setBookings([]);
+      setHistoryEntries([]);
     } finally {
       setLoading(false);
     }
@@ -52,7 +65,7 @@ const BookingList: React.FC<BookingListProps> = ({
       await load();
       onStatusChange();
     } catch (err: any) {
-      alert(
+      setLoadError(
         err?.response?.data?.message || "Operation failed. Please try again.",
       );
     } finally {
@@ -68,7 +81,7 @@ const BookingList: React.FC<BookingListProps> = ({
       await load();
       onStatusChange();
     } catch (err: any) {
-      alert(
+      setLoadError(
         err?.response?.data?.message || "Operation failed. Please try again.",
       );
     } finally {
@@ -89,18 +102,24 @@ const BookingList: React.FC<BookingListProps> = ({
       <h3 className="font-semibold text-gray-900 text-base">
         History — {resource.name}
       </h3>
+      {loadError && (
+        <div
+          className="px-3 py-2 rounded text-sm"
+          style={{ backgroundColor: "#f8d7da", color: "#dc3545" }}
+        >
+          {loadError}
+        </div>
+      )}
       {loading ? (
         <p className="text-sm text-gray-500">Loading…</p>
       ) : (
         <>
           <div>
             <p className="text-xs font-semibold text-gray-700 mb-2">
-              Description Changes
+              Changes
             </p>
             {historyEntries.length === 0 ? (
-              <p className="text-sm text-gray-500">
-                No description changes recorded yet.
-              </p>
+              <p className="text-sm text-gray-500">No changes recorded yet.</p>
             ) : (
               <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
                 {historyEntries.map((entry) => (
@@ -113,7 +132,9 @@ const BookingList: React.FC<BookingListProps> = ({
                     }}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <p className="font-medium text-gray-900">Description updated</p>
+                      <p className="font-medium text-gray-900">
+                        {FIELD_LABELS[entry.field] || entry.field} updated
+                      </p>
                       <span className="text-xs text-gray-500">
                         {fmtDt(entry.createdAt)}
                       </span>
