@@ -1,5 +1,12 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
+  AlertTriangle,
+  CheckCircle2,
+  KeyRound,
+  Laptop,
+  RotateCcw,
+} from "lucide-react";
+import {
   fetchResource,
   fetchBookings,
   returnAllForResource,
@@ -21,6 +28,20 @@ import {
 interface Props {
   resourceId: string;
 }
+
+/** Compact school masthead shown at the top of the standalone scan page. */
+const Masthead: React.FC = () => (
+  <header className="bg-purple-700 sp-rule-gold px-4 py-3">
+    <div className="max-w-md mx-auto">
+      <div className="text-white text-base font-semibold leading-tight">
+        Stonepark Intermediate School
+      </div>
+      <div className="text-purple-200 text-xs mt-0.5">
+        Chromebook Borrowing System
+      </div>
+    </div>
+  </header>
+);
 
 export default function ScanPage({ resourceId }: Props) {
   const [authUser, setAuthUser] = useState<AuthUser | null>(() => {
@@ -201,208 +222,105 @@ export default function ScanPage({ resourceId }: Props) {
   // Login view
   if (showLogin) {
     return (
-      <div
-        style={{
-          minHeight: "100vh",
-          fontFamily: "Inter, system-ui, sans-serif",
-          backgroundColor: "#f8f9fa",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: 20,
-        }}
-      >
-        <div
-          style={{
-            maxWidth: 400,
-            width: "100%",
-            backgroundColor: "#fff",
-            borderRadius: 8,
-            padding: 28,
-            border: "1px solid #e0e0e0",
-            boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
-          }}
-        >
-          <div style={{ textAlign: "center", marginBottom: 20 }}>
-            <div style={{ fontSize: 36, marginBottom: 8 }}>🔐</div>
-            <h1
-              style={{
-                fontSize: 18,
-                fontWeight: 700,
-                color: "#333",
-                margin: 0,
-              }}
-            >
-              Staff Sign In
-            </h1>
-            <p style={{ fontSize: 13, color: "#666", marginTop: 4 }}>
-              Sign in once — stay signed in for 30 days
+      <div className="min-h-screen bg-ink-50 font-sans text-ink-800">
+        <Masthead />
+        <div className="flex items-center justify-center px-5 py-10">
+          <div className="sp-card w-full max-w-sm p-7">
+            <div className="text-center mb-5">
+              <KeyRound
+                size={40}
+                strokeWidth={2}
+                aria-hidden="true"
+                className="mx-auto mb-2 text-purple-700"
+              />
+              <h1 className="text-lg font-semibold text-purple-800">
+                Staff Sign In
+              </h1>
+              <p className="text-sm text-ink-500 mt-1">
+                Sign in once — stay signed in for 30 days
+              </p>
+            </div>
+
+            {loginError && (
+              <div className="sp-banner-alert text-sm mb-4">{loginError}</div>
+            )}
+
+            <form onSubmit={handleLogin}>
+              <div className="mb-4">
+                <label className="sp-label" htmlFor="scan-login-email">
+                  Email
+                </label>
+                <input
+                  id="scan-login-email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  autoComplete="email"
+                  className="sp-input"
+                />
+              </div>
+              <div className="mb-4">
+                <label className="sp-label" htmlFor="scan-login-password">
+                  Password
+                </label>
+                <input
+                  id="scan-login-password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  autoComplete="current-password"
+                  className="sp-input"
+                />
+              </div>
+
+              <label className="flex items-center gap-2 text-sm text-ink-600 mb-4 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="accent-purple-700"
+                />
+                Keep me signed in for 30 days
+              </label>
+
+              <button
+                type="submit"
+                disabled={loginLoading}
+                className="sp-btn-primary w-full"
+              >
+                {loginLoading ? "Signing in…" : "Sign In"}
+              </button>
+            </form>
+
+            {passkeyAvailable && (
+              <>
+                <div className="flex items-center gap-3 my-4">
+                  <span className="flex-1 h-px bg-ink-200" aria-hidden="true" />
+                  <span className="text-xs text-ink-400">or</span>
+                  <span className="flex-1 h-px bg-ink-200" aria-hidden="true" />
+                </div>
+                <button
+                  type="button"
+                  onClick={handlePasskeyLogin}
+                  disabled={passkeyLoading || loginLoading}
+                  className="sp-btn-secondary w-full inline-flex items-center justify-center gap-2"
+                >
+                  <KeyRound size={20} strokeWidth={2} aria-hidden="true" />
+                  {passkeyLoading
+                    ? "Waiting for your device…"
+                    : "Sign In with a Passkey"}
+                </button>
+              </>
+            )}
+
+            <p className="text-center text-xs text-ink-400 mt-4">
+              Sign in with your staff email and password.
+              <br />
+              You'll stay signed in on this device for 30 days.
             </p>
           </div>
-
-          {loginError && (
-            <div
-              style={{
-                backgroundColor: "#f8d7da",
-                color: "#dc3545",
-                padding: "10px 14px",
-                borderRadius: 8,
-                fontSize: 13,
-                marginBottom: 16,
-              }}
-            >
-              {loginError}
-            </div>
-          )}
-
-          <form onSubmit={handleLogin}>
-            <div style={{ marginBottom: 14 }}>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: "#333",
-                  marginBottom: 5,
-                }}
-              >
-                Email
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoComplete="email"
-                style={{
-                  width: "100%",
-                  padding: "10px 12px",
-                  border: "1px solid #ccc",
-                  borderRadius: 8,
-                  fontSize: 14,
-                  boxSizing: "border-box",
-                }}
-              />
-            </div>
-            <div style={{ marginBottom: 14 }}>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: "#333",
-                  marginBottom: 5,
-                }}
-              >
-                Password
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                autoComplete="current-password"
-                style={{
-                  width: "100%",
-                  padding: "10px 12px",
-                  border: "1px solid #ccc",
-                  borderRadius: 8,
-                  fontSize: 14,
-                  boxSizing: "border-box",
-                }}
-              />
-            </div>
-
-            <label
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                fontSize: 13,
-                color: "#555",
-                marginBottom: 16,
-                cursor: "pointer",
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-                style={{ accentColor: "#333" }}
-              />
-              Keep me signed in for 30 days
-            </label>
-
-            <button
-              type="submit"
-              disabled={loginLoading}
-              style={{
-                width: "100%",
-                padding: "13px",
-                backgroundColor: "#333",
-                color: "#fff",
-                border: "none",
-                borderRadius: 8,
-                fontSize: 15,
-                fontWeight: 700,
-                cursor: loginLoading ? "default" : "pointer",
-                opacity: loginLoading ? 0.7 : 1,
-              }}
-            >
-              {loginLoading ? "Signing in…" : "Sign In"}
-            </button>
-          </form>
-
-          {passkeyAvailable && (
-            <>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 12,
-                  margin: "16px 0",
-                }}
-              >
-                <span style={{ flex: 1, height: 1, background: "#e5e7eb" }} />
-                <span style={{ fontSize: 12, color: "#999" }}>or</span>
-                <span style={{ flex: 1, height: 1, background: "#e5e7eb" }} />
-              </div>
-              <button
-                type="button"
-                onClick={handlePasskeyLogin}
-                disabled={passkeyLoading || loginLoading}
-                style={{
-                  width: "100%",
-                  padding: "13px",
-                  backgroundColor: "#fff",
-                  color: "#333",
-                  border: "1px solid #333",
-                  borderRadius: 8,
-                  fontSize: 15,
-                  fontWeight: 600,
-                  cursor: passkeyLoading ? "default" : "pointer",
-                  opacity: passkeyLoading ? 0.7 : 1,
-                }}
-              >
-                {passkeyLoading
-                  ? "Waiting for your device…"
-                  : "🔑 Sign in with a passkey"}
-              </button>
-            </>
-          )}
-
-          <p
-            style={{
-              textAlign: "center",
-              fontSize: 11,
-              color: "#999",
-              marginTop: 16,
-            }}
-          >
-            Sign in with your staff email and password.
-            <br />
-            You'll stay signed in on this device for 30 days.
-          </p>
         </div>
       </div>
     );
@@ -410,237 +328,171 @@ export default function ScanPage({ resourceId }: Props) {
 
   // Main scan page
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        fontFamily: "Inter, system-ui, sans-serif",
-        backgroundColor: "#f5f5f5",
-        padding: 16,
-        maxWidth: 500,
-        margin: "0 auto",
-        color: "#222",
-      }}
-    >
-      {/* Header */}
-      <div
-        style={{
-          backgroundColor: "#333",
-          color: "#fff",
-          borderRadius: 6,
-          padding: "14px 16px",
-          marginBottom: 16,
-        }}
-      >
-        <div style={{ fontSize: 12, opacity: 0.7 }}>Chromebook Manager</div>
-        <div style={{ fontSize: 16, fontWeight: 700, marginTop: 2 }}>
-          Return Chromebooks
+    <div className="min-h-screen bg-ink-50 font-sans text-ink-800">
+      <Masthead />
+      <main className="max-w-md mx-auto p-4">
+        {/* Page heading */}
+        <div className="mb-4">
+          <h1 className="sp-rule-gold inline-block pb-1 text-lg font-semibold text-purple-800">
+            Return Chromebooks
+          </h1>
+          {authUser && (
+            <div className="text-xs text-ink-500 mt-1.5">
+              Signed in as {authUser.name || authUser.email}
+            </div>
+          )}
         </div>
-        {authUser && (
-          <div style={{ fontSize: 12, marginTop: 6, opacity: 0.8 }}>
-            Signed in as {authUser.name || authUser.email}
+
+        {/* Error / Success */}
+        {error && (
+          <div className="sp-banner-alert text-sm mb-3 flex items-start gap-2">
+            <AlertTriangle
+              size={16}
+              strokeWidth={2}
+              aria-hidden="true"
+              className="flex-shrink-0 mt-0.5"
+            />
+            <span>{error}</span>
           </div>
         )}
-      </div>
-
-      {/* Error / Success */}
-      {error && (
-        <div
-          style={{
-            border: "1px solid #dc3545",
-            color: "#dc3545",
-            padding: "10px 14px",
-            borderRadius: 6,
-            fontSize: 13,
-            marginBottom: 12,
-            backgroundColor: "#fff",
-          }}
-        >
-          {error}
-        </div>
-      )}
-      {success && (
-        <div
-          style={{
-            border: "1px solid #333",
-            color: "#333",
-            padding: "10px 14px",
-            borderRadius: 6,
-            fontSize: 13,
-            marginBottom: 12,
-            backgroundColor: "#fff",
-          }}
-        >
-          {success}
-        </div>
-      )}
-
-      {loading ? (
-        <div style={{ textAlign: "center", padding: 40, color: "#666" }}>
-          Loading…
-        </div>
-      ) : resource ? (
-        <>
-          {/* Resource info */}
-          <div
-            style={{
-              backgroundColor: "#fff",
-              borderRadius: 6,
-              padding: 14,
-              marginBottom: 14,
-              border: "1px solid #e0e0e0",
-            }}
-          >
-            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 2 }}>
-              {resource.name}
-            </div>
-            <div style={{ fontSize: 12, color: "#666" }}>
-              {resource.classRoom}
-              {resource.type === "cabinet"
-                ? ` · ${resource.totalQuantity} Chromebooks`
-                : ""}
-            </div>
+        {success && (
+          <div className="sp-banner-success text-sm mb-3 flex items-start gap-2">
+            <CheckCircle2
+              size={16}
+              strokeWidth={2}
+              aria-hidden="true"
+              className="flex-shrink-0 mt-0.5"
+            />
+            <span>{success}</span>
           </div>
+        )}
 
-          {/* Active bookings */}
-          {bookings.length === 0 ? (
-            <div
-              style={{
-                backgroundColor: "#fff",
-                borderRadius: 6,
-                padding: 20,
-                textAlign: "center",
-                border: "1px solid #e0e0e0",
-              }}
-            >
-              <div style={{ fontSize: 32, marginBottom: 8 }}>✅</div>
-              <div style={{ fontSize: 14, color: "#666" }}>
-                No active bookings for this resource.
-              </div>
-            </div>
-          ) : (
-            <>
-              <div
-                style={{
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: "#555",
-                  marginBottom: 8,
-                }}
-              >
-                Active Bookings ({bookings.length})
-              </div>
-
-              {bookings.map((b) => (
-                <div
-                  key={b.id}
-                  style={{
-                    backgroundColor: "#fff",
-                    borderRadius: 6,
-                    padding: 12,
-                    marginBottom: 8,
-                    border: "1px solid #e0e0e0",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: 10,
-                  }}
-                >
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: 600 }}>
-                      {b.borrower}
-                    </div>
-                    <div style={{ fontSize: 11, color: "#666", marginTop: 2 }}>
-                      {b.borrowerClass}
-                      {b.quantity > 1 ? ` · Qty: ${b.quantity}` : ""}
-                    </div>
-                    {b.isOverdue && (
-                      <div
-                        style={{
-                          fontSize: 11,
-                          color: "#dc3545",
-                          fontWeight: 600,
-                          marginTop: 2,
-                        }}
-                      >
-                        ⚠ Overdue
-                      </div>
+        {loading ? (
+          <div className="text-center py-10 text-ink-500">Loading…</div>
+        ) : resource ? (
+          <>
+            {/* Resource info */}
+            <div className="sp-card p-4 mb-3">
+              <div className="flex items-start gap-2">
+                <Laptop
+                  size={16}
+                  strokeWidth={2}
+                  aria-hidden="true"
+                  className="flex-shrink-0 mt-0.5 text-purple-700"
+                />
+                <div>
+                  <div className="text-sm font-semibold text-purple-800">
+                    {resource.name}
+                  </div>
+                  <div className="text-xs text-ink-500 mt-0.5">
+                    {resource.classRoom}
+                    {resource.type === "cabinet" && (
+                      <>
+                        {" · "}
+                        <span className="font-mono">
+                          {resource.totalQuantity}
+                        </span>{" "}
+                        Chromebooks
+                      </>
                     )}
                   </div>
-                  <button
-                    onClick={() => handleReturnSingle(b)}
-                    disabled={returning}
-                    style={{
-                      padding: "7px 14px",
-                      backgroundColor: "#fff",
-                      color: "#333",
-                      border: "1px solid #333",
-                      borderRadius: 6,
-                      fontSize: 13,
-                      fontWeight: 500,
-                      cursor: returning ? "default" : "pointer",
-                      opacity: returning ? 0.5 : 1,
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    Return
-                  </button>
                 </div>
-              ))}
+              </div>
+            </div>
 
-              {/* Return All button */}
-              <button
-                onClick={handleReturnAll}
-                disabled={returning}
-                style={{
-                  width: "100%",
-                  padding: "13px",
-                  backgroundColor: returning ? "#555" : "#111",
-                  color: "#fff",
-                  border: "1px solid #111",
-                  borderRadius: 6,
-                  fontSize: 15,
-                  fontWeight: 600,
-                  cursor: returning ? "default" : "pointer",
-                  opacity: returning ? 0.7 : 1,
-                  marginTop: 8,
-                  letterSpacing: "0.01em",
-                }}
-              >
-                {returning ? "Processing…" : "Return All"}
-              </button>
-            </>
-          )}
+            {/* Active bookings */}
+            {bookings.length === 0 ? (
+              <div className="sp-card p-6 text-center">
+                <CheckCircle2
+                  size={40}
+                  strokeWidth={2}
+                  aria-hidden="true"
+                  className="mx-auto mb-2 text-status-success-edge"
+                />
+                <div className="text-sm text-ink-500">
+                  No active bookings for this resource.
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="text-xs font-semibold uppercase tracking-wide text-ink-500 mb-2">
+                  Active Bookings (
+                  <span className="font-mono">{bookings.length}</span>)
+                </div>
 
-          {/* Sign out */}
-          <button
-            onClick={() => {
-              localStorage.removeItem("auth_token");
-              localStorage.removeItem("auth_user");
-              clearServiceWorkerCaches();
-              setAuthUser(null);
-              setToken("");
-              setShowLogin(true);
-            }}
-            style={{
-              width: "100%",
-              padding: "12px",
-              backgroundColor: "transparent",
-              color: "#999",
-              border: "1px solid #ddd",
-              borderRadius: 8,
-              fontSize: 13,
-              marginTop: 16,
-              cursor: "pointer",
-            }}
-          >
-            Sign Out
-          </button>
-        </>
-      ) : (
-        <div style={{ textAlign: "center", padding: 40, color: "#666" }}>
-          Resource not found.
-        </div>
-      )}
+                {bookings.map((b) => (
+                  <div
+                    key={b.id}
+                    className="sp-card p-3 mb-2 flex items-center justify-between gap-3"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold text-ink-800">
+                        {b.borrower}
+                      </div>
+                      <div className="text-xs text-ink-500 mt-0.5">
+                        {b.borrowerClass}
+                        {b.quantity > 1 && (
+                          <>
+                            {" · Qty: "}
+                            <span className="font-mono">{b.quantity}</span>
+                          </>
+                        )}
+                      </div>
+                      {b.isOverdue && (
+                        <span className="sp-pill-alert inline-flex items-center gap-1 mt-1">
+                          <AlertTriangle
+                            size={12}
+                            strokeWidth={2}
+                            aria-hidden="true"
+                          />
+                          Overdue
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => handleReturnSingle(b)}
+                      disabled={returning}
+                      className="sp-btn-secondary sp-btn-sm inline-flex items-center gap-1.5 whitespace-nowrap flex-shrink-0"
+                    >
+                      <RotateCcw size={14} strokeWidth={2} aria-hidden="true" />
+                      Return
+                    </button>
+                  </div>
+                ))}
+
+                {/* Return All button */}
+                <button
+                  onClick={handleReturnAll}
+                  disabled={returning}
+                  className="sp-btn-primary w-full mt-2 inline-flex items-center justify-center gap-2"
+                >
+                  <RotateCcw size={20} strokeWidth={2} aria-hidden="true" />
+                  {returning ? "Processing…" : "Return All"}
+                </button>
+              </>
+            )}
+
+            {/* Sign out */}
+            <button
+              onClick={() => {
+                localStorage.removeItem("auth_token");
+                localStorage.removeItem("auth_user");
+                clearServiceWorkerCaches();
+                setAuthUser(null);
+                setToken("");
+                setShowLogin(true);
+              }}
+              className="sp-btn-ghost w-full mt-4 text-sm"
+            >
+              Sign Out
+            </button>
+          </>
+        ) : (
+          <div className="text-center py-10 text-ink-500">
+            Resource not found.
+          </div>
+        )}
+      </main>
     </div>
   );
 }

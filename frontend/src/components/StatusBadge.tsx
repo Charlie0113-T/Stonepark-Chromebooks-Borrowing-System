@@ -6,10 +6,19 @@ interface StatusBadgeProps {
   showLabel?: boolean;
 }
 
+// Status colours from the Stonepark design system: green = confirmed/open,
+// amber = advisory, red = fully booked. Status colours are earned, not
+// decorative.
 const STATUS_CONFIG: Record<ResourceStatus, { color: string; bg: string; label: string }> = {
-  available: { color: '#28a745', bg: '#d4edda', label: 'Available' },
-  partial:   { color: '#856404', bg: '#fff3cd', label: 'Partial' },
-  full:      { color: '#dc3545', bg: '#f8d7da', label: 'Full' },
+  available: { color: '#155C39', bg: '#E1F3EA', label: 'Available' },
+  partial:   { color: '#B06B00', bg: '#FDF0DC', label: 'Partial' },
+  full:      { color: '#8F1C16', bg: '#FBE7E5', label: 'Full' },
+};
+
+const DOT_COLOR: Record<ResourceStatus, string> = {
+  available: '#1E7A4C',
+  partial: '#E08A00',
+  full: '#C0271F',
 };
 
 export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, showLabel = true }) => {
@@ -21,7 +30,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, showLabel = tr
     >
       <span
         className="w-2 h-2 rounded-full inline-block"
-        style={{ backgroundColor: cfg.color }}
+        style={{ backgroundColor: DOT_COLOR[status] }}
         aria-hidden="true"
       />
       {showLabel && cfg.label}
@@ -34,12 +43,10 @@ interface StatusDotProps {
 }
 
 export const StatusDot: React.FC<StatusDotProps> = ({ status }) => {
-  const color =
-    status === 'available' ? '#28a745' : status === 'partial' ? '#ffc107' : '#dc3545';
   return (
     <span
       className="w-3 h-3 rounded-full inline-block"
-      style={{ backgroundColor: color }}
+      style={{ backgroundColor: DOT_COLOR[status] }}
       aria-label={status}
     />
   );

@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useState } from "react";
 import { QRCodeCanvas } from "qrcode.react";
+import { Download, Info, MapPin } from "lucide-react";
 import { Resource } from "../types";
 
 interface Props {
@@ -65,40 +66,47 @@ export default function QRCodeGallery({ resources }: Props) {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">
+          <h2 className="text-lg font-bold text-purple-800 sp-rule-gold inline-block pb-1">
             Cabinet QR Codes
           </h2>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-ink-500 mt-1">
             Scan to return borrowed Chromebooks. Uses the internal ID — renaming
             won't break the QR code.
           </p>
         </div>
-        <span className="text-xs text-gray-500">
+        <span className="text-xs font-mono text-ink-500">
           {cabinets.length} cabinets
         </span>
       </div>
 
       {cabinets.length === 0 ? (
-        <p className="text-sm text-gray-500">No cabinet resources found.</p>
+        <p className="text-sm text-ink-500">No cabinet resources found.</p>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {cabinets.map((cabinet) => (
             <div
               key={cabinet.id}
-              className="rounded border bg-white p-4 flex flex-col items-center gap-3"
-              style={{ borderColor: "#333333" }}
+              className="sp-card p-4 flex flex-col items-center gap-3 hover:shadow-md hover:-translate-y-0.5 transition"
             >
               <div className="text-center">
-                <div className="text-sm font-semibold text-gray-900">
+                <div className="text-sm font-bold text-purple-800">
                   {cabinet.name}
                 </div>
-                <div className="text-xs text-gray-500">{cabinet.classRoom}</div>
+                <div className="text-xs font-mono text-ink-500 inline-flex items-center gap-1">
+                  <MapPin
+                    size={14}
+                    strokeWidth={2}
+                    aria-hidden="true"
+                    className="text-ink-400 shrink-0"
+                  />
+                  {cabinet.classRoom}
+                </div>
               </div>
               <QRCodeCanvas
                 value={buildReturnUrl(cabinet.id)}
                 size={180}
                 bgColor="#ffffff"
-                fgColor="#333333"
+                fgColor="#140A38"
                 level="H"
                 includeMargin
                 ref={(el) => {
@@ -106,16 +114,16 @@ export default function QRCodeGallery({ resources }: Props) {
                 }}
               />
               <p
-                className="text-[10px] text-gray-400 text-center break-all leading-tight px-1"
+                className="text-[10px] font-mono text-ink-400 text-center break-all leading-tight px-1"
                 style={{ maxWidth: 180 }}
               >
                 {buildReturnUrl(cabinet.id)}
               </p>
               <button
                 onClick={() => handleDownloadSingle(cabinet)}
-                className="px-3 py-1 rounded text-xs font-medium border transition-colors hover:bg-gray-100"
-                style={{ borderColor: "#333333", color: "#333333" }}
+                className="sp-btn-secondary sp-btn-sm inline-flex items-center gap-1.5"
               >
+                <Download size={14} strokeWidth={2} aria-hidden="true" />
                 Download QR
               </button>
             </div>
@@ -123,8 +131,14 @@ export default function QRCodeGallery({ resources }: Props) {
         </div>
       )}
 
-      <p className="text-xs text-gray-500">
-        ℹ️ QR codes link to the mobile-friendly return page. Staff sign in once
+      <p className="text-xs text-ink-500 inline-flex items-start gap-1.5">
+        <Info
+          size={14}
+          strokeWidth={2}
+          aria-hidden="true"
+          className="shrink-0 mt-0.5 text-ink-400"
+        />
+        QR codes link to the mobile-friendly return page. Staff sign in once
         and stay signed in for 30 days.
       </p>
 
@@ -132,15 +146,15 @@ export default function QRCodeGallery({ resources }: Props) {
         <button
           onClick={handleDownloadAll}
           disabled={downloading}
-          className="px-4 py-2 rounded text-sm font-medium inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          style={{ backgroundColor: "#333333", color: "#fff" }}
+          className="sp-btn-primary inline-flex items-center gap-2"
         >
-          {downloading && (
+          {downloading ? (
             <svg
               className="animate-spin h-4 w-4 text-white"
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
               viewBox="0 0 24 24"
+              aria-hidden="true"
             >
               <circle
                 className="opacity-25"
@@ -156,6 +170,8 @@ export default function QRCodeGallery({ resources }: Props) {
                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
               />
             </svg>
+          ) : (
+            <Download size={20} strokeWidth={2} aria-hidden="true" />
           )}
           {downloading ? "Downloading…" : "Download All QR Codes"}
         </button>

@@ -17,6 +17,7 @@
     "autoprefixer": "^10.4.27",
     "axios": "^1.13.6",
     "date-fns": "^4.1.0",
+    "lucide-react": "^1.30.0",
     "moment": "^2.30.1",
     "postcss": "^8.5.8",
     "qrcode.react": "^4.2.0",

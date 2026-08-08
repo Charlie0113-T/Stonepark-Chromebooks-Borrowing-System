@@ -1,5 +1,16 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
+  AlertTriangle,
+  CheckCircle2,
+  KeyRound,
+  ShieldCheck,
+  Trash2,
+  TrendingUp,
+  UserPlus,
+  Users,
+  X,
+} from "lucide-react";
+import {
   adminCreateUser,
   adminDeleteUser,
   adminSetPassword,
@@ -26,6 +37,17 @@ interface Props {
 }
 
 type PanelMode = "list" | "create" | "reset";
+
+/** Small warning chip shown when an account has no security questions set. */
+const NoSecurityQuestionsChip: React.FC = () => (
+  <div
+    className="sp-pill-warning inline-flex items-center gap-1 mt-0.5"
+    title="This user has not set security questions yet; they will be prompted to set them on first sign-in."
+  >
+    <AlertTriangle size={12} strokeWidth={2} aria-hidden="true" />
+    No security questions set
+  </div>
+);
 
 export default function StaffManagement({ currentUser }: Props) {
   const [users, setUsers] = useState<UserRow[]>([]);
@@ -253,57 +275,60 @@ export default function StaffManagement({ currentUser }: Props) {
     <div className="space-y-4">
       {/* Feedback messages */}
       {error && (
-        <div
-          className="px-3 py-2 rounded text-sm"
-          style={{ backgroundColor: "#f8d7da", color: "#dc3545" }}
-        >
-          {error}
+        <div className="sp-banner-alert text-sm flex items-start gap-2">
+          <AlertTriangle
+            size={16}
+            strokeWidth={2}
+            aria-hidden="true"
+            className="flex-shrink-0 mt-0.5"
+          />
+          <span>{error}</span>
         </div>
       )}
       {success && (
-        <div
-          className="px-3 py-2 rounded text-sm"
-          style={{ backgroundColor: "#d4edda", color: "#155724" }}
-        >
-          ✅ {success}
+        <div className="sp-banner-success text-sm flex items-start gap-2">
+          <CheckCircle2
+            size={16}
+            strokeWidth={2}
+            aria-hidden="true"
+            className="flex-shrink-0 mt-0.5"
+          />
+          <span>{success}</span>
         </div>
       )}
 
       {/* ── Create account panel ─────────────────────────────────────── */}
       {panel === "create" && (
         <form onSubmit={handleCreate} className="space-y-3">
-          <div className="text-sm font-semibold text-gray-700 mb-1">
+          <div className="sp-rule-gold inline-block pb-1 text-sm font-semibold text-purple-800">
             Create Staff Account
-          </div>          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">
-              Name (optional)
-            </label>
+          </div>
+          <div>
+            <label className="sp-label">Name (Optional)</label>
             <input
               type="text"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               placeholder="e.g. Ms. Johnson"
-              className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
-              style={{ borderColor: "#ccc" }}
+              className="sp-input"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">
-              Email <span className="text-red-500">*</span>
+            <label className="sp-label">
+              Email <span className="text-status-alert-fg">*</span>
             </label>
             <input
               type="email"
               value={newEmail}
               onChange={(e) => setNewEmail(e.target.value)}
               placeholder="teacher@school.edu"
-              className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
-              style={{ borderColor: "#ccc" }}
+              className="sp-input"
               required
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">
-              Password <span className="text-red-500">*</span>
+            <label className="sp-label">
+              Password <span className="text-status-alert-fg">*</span>
             </label>
             <div className="relative">
               <input
@@ -311,14 +336,13 @@ export default function StaffManagement({ currentUser }: Props) {
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="At least 8 characters"
-                className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 pr-16"
-                style={{ borderColor: "#ccc" }}
+                className="sp-input pr-16"
                 required
               />
               <button
                 type="button"
                 onClick={() => setShowNewPassword((v) => !v)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 hover:text-gray-600"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-ink-400 hover:text-ink-600"
                 tabIndex={-1}
               >
                 {showNewPassword ? "Hide" : "Show"}
@@ -326,16 +350,15 @@ export default function StaffManagement({ currentUser }: Props) {
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">
-              Confirm Password <span className="text-red-500">*</span>
+            <label className="sp-label">
+              Confirm Password <span className="text-status-alert-fg">*</span>
             </label>
             <input
               type={showNewPassword ? "text" : "password"}
               value={newConfirm}
               onChange={(e) => setNewConfirm(e.target.value)}
               placeholder="Repeat password"
-              className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
-              style={{ borderColor: "#ccc" }}
+              className="sp-input"
               required
             />
           </div>
@@ -343,26 +366,21 @@ export default function StaffManagement({ currentUser }: Props) {
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 py-2 rounded font-medium text-sm"
-              style={{
-                backgroundColor: "#333333",
-                color: "#fff",
-                opacity: loading ? 0.7 : 1,
-              }}
+              className="sp-btn-primary flex-1 inline-flex items-center justify-center gap-2"
             >
+              <UserPlus size={16} strokeWidth={2} aria-hidden="true" />
               {loading ? "Creating…" : "Create Account"}
             </button>
             <button
               type="button"
               onClick={goBack}
               disabled={loading}
-              className="px-4 py-2 rounded border text-sm"
-              style={{ borderColor: "#ccc", color: "#555" }}
+              className="sp-btn-secondary"
             >
               Cancel
             </button>
           </div>
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-ink-500">
             The teacher's email will be automatically added to the whitelist.
             Share the password with them directly.
           </p>
@@ -372,21 +390,18 @@ export default function StaffManagement({ currentUser }: Props) {
       {/* ── Reset password panel ─────────────────────────────────────── */}
       {panel === "reset" && resetTarget && (
         <form onSubmit={handleResetPassword} className="space-y-3">
-          <div className="text-sm font-semibold text-gray-700 mb-1">
+          <div className="sp-rule-gold inline-block pb-1 text-sm font-semibold text-purple-800">
             Reset Password
           </div>
-          <div
-            className="px-3 py-2 rounded text-sm"
-            style={{ backgroundColor: "#f0f0f0", color: "#333" }}
-          >
+          <div className="px-3 py-2 rounded-md bg-ink-50 text-sm text-ink-800">
             Setting new password for{" "}
             <strong>{resetTarget.name || resetTarget.email}</strong>
             <br />
-            <span className="text-xs text-gray-500">{resetTarget.email}</span>
+            <span className="text-xs text-ink-500">{resetTarget.email}</span>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">
-              New Password <span className="text-red-500">*</span>
+            <label className="sp-label">
+              New Password <span className="text-status-alert-fg">*</span>
             </label>
             <div className="relative">
               <input
@@ -394,15 +409,14 @@ export default function StaffManagement({ currentUser }: Props) {
                 value={resetPassword}
                 onChange={(e) => setResetPasswordValue(e.target.value)}
                 placeholder="At least 8 characters"
-                className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 pr-16"
-                style={{ borderColor: "#ccc" }}
+                className="sp-input pr-16"
                 required
                 autoFocus
               />
               <button
                 type="button"
                 onClick={() => setShowResetPassword((v) => !v)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 hover:text-gray-600"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-ink-400 hover:text-ink-600"
                 tabIndex={-1}
               >
                 {showResetPassword ? "Hide" : "Show"}
@@ -410,16 +424,16 @@ export default function StaffManagement({ currentUser }: Props) {
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">
-              Confirm New Password <span className="text-red-500">*</span>
+            <label className="sp-label">
+              Confirm New Password{" "}
+              <span className="text-status-alert-fg">*</span>
             </label>
             <input
               type={showResetPassword ? "text" : "password"}
               value={resetConfirm}
               onChange={(e) => setResetConfirm(e.target.value)}
               placeholder="Repeat new password"
-              className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
-              style={{ borderColor: "#ccc" }}
+              className="sp-input"
               required
             />
           </div>
@@ -427,21 +441,16 @@ export default function StaffManagement({ currentUser }: Props) {
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 py-2 rounded font-medium text-sm"
-              style={{
-                backgroundColor: "#333333",
-                color: "#fff",
-                opacity: loading ? 0.7 : 1,
-              }}
+              className="sp-btn-primary flex-1 inline-flex items-center justify-center gap-2"
             >
+              <KeyRound size={16} strokeWidth={2} aria-hidden="true" />
               {loading ? "Updating…" : "Update Password"}
             </button>
             <button
               type="button"
               onClick={goBack}
               disabled={loading}
-              className="px-4 py-2 rounded border text-sm"
-              style={{ borderColor: "#ccc", color: "#555" }}
+              className="sp-btn-secondary"
             >
               Cancel
             </button>
@@ -453,121 +462,114 @@ export default function StaffManagement({ currentUser }: Props) {
       {panel === "list" && (
         <>
           <div className="flex items-center justify-between">
-            <div className="text-sm text-gray-500">
-              {users.length} account{users.length !== 1 ? "s" : ""} total
+            <div className="text-sm text-ink-500">
+              <span className="font-mono">{users.length}</span> account
+              {users.length !== 1 ? "s" : ""} total
               {users.length > 0 &&
-                users.filter((u) => !u.has_security_questions).length > 0 && ( 
-                  <span className="ml-2 text-xs" style={{ color: "#856404" }}>
-                    ⚠️ {users.filter((u) => !u.has_security_questions).length} users without security questions
+                users.filter((u) => !u.has_security_questions).length > 0 && (
+                  <span className="ml-2 text-xs text-status-warning-fg inline-flex items-center gap-1">
+                    <AlertTriangle
+                      size={12}
+                      strokeWidth={2}
+                      aria-hidden="true"
+                    />
+                    <span className="font-mono">
+                      {users.filter((u) => !u.has_security_questions).length}
+                    </span>{" "}
+                    users without security questions
                   </span>
                 )}
             </div>
             <button
               onClick={openCreate}
               disabled={loading}
-              className="px-3 py-1.5 rounded text-sm font-medium"
-              style={{
-                backgroundColor: "#333333",
-                color: "#fff",
-                opacity: loading ? 0.7 : 1,
-              }}
+              className="sp-btn-primary sp-btn-sm inline-flex items-center gap-1.5"
             >
-              + Add Teacher Account
+              <UserPlus size={16} strokeWidth={2} aria-hidden="true" />
+              Add Teacher Account
             </button>
           </div>
 
           {loading && users.length === 0 ? (
-            <div className="text-sm text-gray-500 text-center py-6">
+            <div className="text-sm text-ink-500 text-center py-6">
               Loading…
             </div>
           ) : users.length === 0 ? (
-            <div className="text-sm text-gray-500 text-center py-6">
+            <div className="text-sm text-ink-500 text-center py-6">
               No user accounts found.
             </div>
           ) : (
             <div className="space-y-4">
               {/* Staff accounts */}
               <div>
-                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                  👩‍🏫 Teachers / Staff ({staffUsers.length})
+                <div className="text-xs font-semibold text-ink-500 uppercase tracking-wide mb-1 flex items-center gap-1.5">
+                  <Users size={14} strokeWidth={2} aria-hidden="true" />
+                  Teachers / Staff ({staffUsers.length})
                 </div>
                 {staffUsers.length === 0 ? (
-                  <div className="text-xs text-gray-400 px-1">
-                    No staff accounts yet. Click "+ Add Teacher Account" to
+                  <div className="text-xs text-ink-400 px-1">
+                    No staff accounts yet. Click "Add Teacher Account" to
                     create one.
                   </div>
                 ) : (
-                  <div
-                    className="divide-y border rounded"
-                    style={{ borderColor: "#e5e7eb" }}
-                  >
+                  <div className="divide-y divide-ink-100 border border-ink-200 rounded-md">
                     {staffUsers.map((user) => (
                       <div
                         key={user.id}
-                        className="flex items-center justify-between px-3 py-2"
+                        className="flex items-center justify-between px-3 py-2 hover:bg-purple-50"
                       >
                         <div className="min-w-0 flex-1 mr-2">
-                          <div className="text-sm font-medium text-gray-900 truncate">
+                          <div className="text-sm font-medium text-ink-900 truncate">
                             {user.name || user.email}
                           </div>
                           {user.name && (
-                            <div className="text-xs text-gray-400 truncate">
+                            <div className="text-xs text-ink-400 truncate">
                               {user.email}
                             </div>
                           )}
                           {!user.has_security_questions && (
-                            <div
-                              className="text-[10px] mt-0.5 px-1.5 py-0.5 rounded inline-block"
-                              style={{
-                                backgroundColor: "#fff3cd",
-                                color: "#856404",
-                                border: "1px solid #ffc107",
-                              }}
-                              title="该用户还未设置安全问题，首次登录时会自动提示设置"
-                              >
-                                ⚠️ No security questions set
-                              </div>
+                            <NoSecurityQuestionsChip />
                           )}
                         </div>
                         <div className="flex items-center gap-1 flex-shrink-0">
                           <button
                             onClick={() => handleRequestPromotion(user)}
                             disabled={loading || promotionLoading}
-                            className="px-2 py-1 rounded border text-xs"
-                            style={{
-                              borderColor: "#333333",
-                              color: "#333333",
-                              opacity: (loading || promotionLoading) ? 0.6 : 1,
-                            }}
+                            className="sp-btn-secondary sp-btn-sm inline-flex items-center gap-1"
                             title="Request promotion to Admin (requires other admins to vote)"
                           >
-                            ⬆ Promote
+                            <ShieldCheck
+                              size={14}
+                              strokeWidth={2}
+                              aria-hidden="true"
+                            />
+                            Promote
                           </button>
                           <button
                             onClick={() => openReset(user)}
                             disabled={loading}
-                            className="px-2 py-1 rounded border text-xs"
-                            style={{
-                              borderColor: "#333333",
-                              color: "#333333",
-                              opacity: loading ? 0.6 : 1,
-                            }}
+                            className="sp-btn-secondary sp-btn-sm inline-flex items-center gap-1"
                             title="Reset password"
                           >
-                            🔑 Reset pw
+                            <KeyRound
+                              size={14}
+                              strokeWidth={2}
+                              aria-hidden="true"
+                            />
+                            Reset Password
                           </button>
                           <button
                             onClick={() => setDeleteTarget(user)}
                             disabled={loading}
-                            className="px-2 py-1 rounded border text-xs"
-                            style={{
-                              borderColor: "#dc3545",
-                              color: "#dc3545",
-                              opacity: loading ? 0.6 : 1,
-                            }}
+                            className="sp-btn sp-btn-sm border border-status-alert-edge text-status-alert-fg bg-white hover:bg-status-alert-bg"
                             title="Delete account"
+                            aria-label="Delete Account"
                           >
-                            🗑
+                            <Trash2
+                              size={14}
+                              strokeWidth={2}
+                              aria-hidden="true"
+                            />
                           </button>
                         </div>
                       </div>
@@ -578,13 +580,11 @@ export default function StaffManagement({ currentUser }: Props) {
 
               {/* Admin accounts */}
               <div>
-                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                  🛡 Admins ({adminUsers.length})
+                <div className="text-xs font-semibold text-ink-500 uppercase tracking-wide mb-1 flex items-center gap-1.5">
+                  <ShieldCheck size={14} strokeWidth={2} aria-hidden="true" />
+                  Admins ({adminUsers.length})
                 </div>
-                <div
-                  className="divide-y border rounded"
-                  style={{ borderColor: "#e5e7eb" }}
-                >
+                <div className="divide-y divide-ink-100 border border-ink-200 rounded-md">
                   {adminUsers.map((user) => {
                     const isSelf =
                       currentUser.email.toLowerCase() ===
@@ -592,51 +592,38 @@ export default function StaffManagement({ currentUser }: Props) {
                     return (
                       <div
                         key={user.id}
-                        className="flex items-center justify-between px-3 py-2"
+                        className="flex items-center justify-between px-3 py-2 hover:bg-purple-50"
                       >
                         <div className="min-w-0 flex-1 mr-2">
-                          <div className="text-sm font-medium text-gray-900 truncate flex items-center gap-1.5">
+                          <div className="text-sm font-medium text-ink-900 truncate flex items-center gap-1.5">
                             {user.name || user.email}
                             {isSelf && (
-                              <span
-                                className="text-[10px] px-1.5 py-0.5 rounded border"
-                                style={{ borderColor: "#333", color: "#333" }}
-                              >
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-sm border border-ink-300 text-ink-600">
                                 You
                               </span>
                             )}
                           </div>
                           {user.name && (
-                            <div className="text-xs text-gray-400 truncate">
+                            <div className="text-xs text-ink-400 truncate">
                               {user.email}
                             </div>
                           )}
                           {!user.has_security_questions && (
-                            <div
-                              className="text-[10px] mt-0.5 px-1.5 py-0.5 rounded inline-block"
-                              style={{
-                                backgroundColor: "#fff3cd",
-                                color: "#856404",
-                                border: "1px solid #ffc107",
-                              }}
-                              title="该用户还未设置安全问题，首次登录时会自动提示设置"
-                              >
-                                ⚠️ No security questions set
-                              </div>
+                            <NoSecurityQuestionsChip />
                           )}
                         </div>
                         <button
                           onClick={() => openReset(user)}
                           disabled={loading}
-                          className="px-2 py-1 rounded border text-xs flex-shrink-0"
-                          style={{
-                            borderColor: "#333333",
-                            color: "#333333",
-                            opacity: loading ? 0.6 : 1,
-                          }}
+                          className="sp-btn-secondary sp-btn-sm inline-flex items-center gap-1 flex-shrink-0"
                           title="Reset password"
                         >
-                          🔑 Reset pw
+                          <KeyRound
+                            size={14}
+                            strokeWidth={2}
+                            aria-hidden="true"
+                          />
+                          Reset Password
                         </button>
                       </div>
                     );
@@ -649,26 +636,21 @@ export default function StaffManagement({ currentUser }: Props) {
           {/* Pending admin promotions */}
           {(promotionRequests.length > 0 || promotionError) && (
             <div>
-              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                ⬆ Pending Admin Promotions
+              <div className="text-xs font-semibold text-ink-500 uppercase tracking-wide mb-1 flex items-center gap-1.5">
+                <TrendingUp size={14} strokeWidth={2} aria-hidden="true" />
+                Pending Admin Promotions
               </div>
               {promotionError && (
-                <div
-                  className="px-3 py-2 rounded text-sm mb-2"
-                  style={{ backgroundColor: "#f8d7da", color: "#dc3545" }}
-                >
+                <div className="sp-banner-alert text-sm mb-2">
                   {promotionError}
                 </div>
               )}
               {promotionRequests.length === 0 ? (
-                <div className="text-xs text-gray-400 px-1">
+                <div className="text-xs text-ink-400 px-1">
                   No pending promotion requests.
                 </div>
               ) : (
-                <div
-                  className="divide-y border rounded"
-                  style={{ borderColor: "#e5e7eb" }}
-                >
+                <div className="divide-y divide-ink-100 border border-ink-200 rounded-md">
                   {promotionRequests.map((req) => {
                     const canVote =
                       !req.has_voted &&
@@ -678,47 +660,48 @@ export default function StaffManagement({ currentUser }: Props) {
                     return (
                       <div
                         key={req.email}
-                        className="flex items-center justify-between px-3 py-2"
+                        className="flex items-center justify-between px-3 py-2 hover:bg-purple-50"
                       >
                         <div>
-                          <div className="text-sm text-gray-900">{req.email}</div>
-                          <div className="text-xs text-gray-400">
+                          <div className="text-sm text-ink-900">
+                            {req.email}
+                          </div>
+                          <div className="text-xs text-ink-400">
                             Requested by {req.created_by}
                           </div>
-                          <div className="text-xs text-gray-500">
-                            Votes: {req.votes}/{req.required}
+                          <div className="text-xs text-ink-500">
+                            Votes:{" "}
+                            <span className="font-mono">
+                              {req.votes}/{req.required}
+                            </span>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => handleVotePromotion(req.email)}
                             disabled={!canVote || promotionLoading}
-                            className="px-2 py-1 rounded border text-xs"
-                            style={{
-                              borderColor: "#333333",
-                              color: canVote ? "#333333" : "#999999",
-                              opacity: promotionLoading ? 0.6 : 1,
-                            }}
+                            className="sp-btn-secondary sp-btn-sm inline-flex items-center gap-1"
                             title={
                               canVote
                                 ? "Vote to approve promotion"
                                 : "Already voted or not eligible"
                             }
                           >
-                            {req.has_voted ? "Voted" : "Vote approve"}
+                            <CheckCircle2
+                              size={14}
+                              strokeWidth={2}
+                              aria-hidden="true"
+                            />
+                            {req.has_voted ? "Voted" : "Vote Approve"}
                           </button>
                           <button
                             onClick={() => handleCancelPromotion(req.email)}
                             disabled={promotionLoading}
-                            className="px-2 py-1 rounded border text-xs"
-                            style={{
-                              borderColor: "#dc3545",
-                              color: "#dc3545",
-                              opacity: promotionLoading ? 0.6 : 1,
-                            }}
+                            className="sp-btn sp-btn-sm border border-status-alert-edge text-status-alert-fg bg-white hover:bg-status-alert-bg inline-flex items-center gap-1"
                             title="Cancel this promotion request"
                           >
-                            ✕ Cancel
+                            <X size={14} strokeWidth={2} aria-hidden="true" />
+                            Cancel
                           </button>
                         </div>
                       </div>
@@ -729,16 +712,19 @@ export default function StaffManagement({ currentUser }: Props) {
             </div>
           )}
 
-          <p className="text-xs text-gray-400 pt-1">
+          <p className="text-xs text-ink-500 pt-1">
             Creating an account automatically whitelists the email. Share the
             password with the teacher securely (e.g. in person or via your
             school's internal messaging).
           </p>
-          <p className="text-xs text-gray-400 pt-1">
-            💡 To promote a staff member to Admin, click "⬆ Promote" — other admins must vote to approve, mirroring the admin removal process.
+          <p className="text-xs text-ink-500 pt-1">
+            To promote a staff member to Admin, click "Promote" — other admins
+            must vote to approve, mirroring the admin removal process.
           </p>
-          <p className="text-xs text-gray-400 pt-1">
-            💡 Users labeled "⚠️ No security questions set" will be prompted to set security questions on first login; no environment variables are required. Once set, they can use the "Forgot password" feature.
+          <p className="text-xs text-ink-500 pt-1">
+            Users labeled "No security questions set" will be prompted to set
+            security questions on first login; no environment variables are
+            required. Once set, they can use the "Forgot password" feature.
           </p>
         </>
       )}
@@ -746,22 +732,21 @@ export default function StaffManagement({ currentUser }: Props) {
       {/* ── Delete confirmation overlay ──────────────────────────────── */}
       {deleteTarget && (
         <div
-          className="fixed inset-0 flex items-center justify-center z-50"
-          style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
+          className="fixed inset-0 flex items-center justify-center z-50 bg-ink-900/50"
           onClick={() => setDeleteTarget(null)}
         >
           <div
-            className="bg-white rounded-lg shadow-xl p-6 max-w-sm w-full mx-4"
+            className="bg-white rounded-md shadow-lg p-6 max-w-sm w-full mx-4"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="text-base font-semibold text-gray-800 mb-2">
+            <div className="text-base font-semibold text-purple-800 mb-2">
               Delete account?
             </div>
-            <p className="text-sm text-gray-600 mb-4">
+            <p className="text-sm text-ink-600 mb-4">
               This will permanently delete the account for{" "}
               <strong>{deleteTarget.name || deleteTarget.email}</strong>
               {deleteTarget.name && (
-                <span className="text-gray-400"> ({deleteTarget.email})</span>
+                <span className="text-ink-400"> ({deleteTarget.email})</span>
               )}
               . They will no longer be able to sign in.
             </p>
@@ -769,20 +754,15 @@ export default function StaffManagement({ currentUser }: Props) {
               <button
                 onClick={handleDelete}
                 disabled={loading}
-                className="flex-1 py-2 rounded font-medium text-sm"
-                style={{
-                  backgroundColor: "#dc3545",
-                  color: "#fff",
-                  opacity: loading ? 0.7 : 1,
-                }}
+                className="sp-btn-danger flex-1 inline-flex items-center justify-center gap-2"
               >
-                {loading ? "Deleting…" : "Yes, delete"}
+                <Trash2 size={16} strokeWidth={2} aria-hidden="true" />
+                {loading ? "Deleting…" : "Yes, Delete"}
               </button>
               <button
                 onClick={() => setDeleteTarget(null)}
                 disabled={loading}
-                className="flex-1 py-2 rounded border text-sm"
-                style={{ borderColor: "#ccc", color: "#555" }}
+                className="sp-btn-secondary flex-1"
               >
                 Cancel
               </button>

@@ -18,7 +18,26 @@ interface StatsViewProps {
   stats: Stats;
 }
 
-const COLORS = ["#28a745", "#ffc107", "#dc3545"];
+// Design-system status trio (utilisation / availability charts)
+const STATUS_GREEN = "#1E7A4C";
+const STATUS_AMBER = "#E08A00";
+const STATUS_RED = "#C0271F";
+
+// Chart chrome
+const GRID_STROKE = "#DDD9E5";
+const AXIS_TEXT = "#726B87";
+const CHART_FONT = "'Source Sans 3', sans-serif";
+
+const TOOLTIP_STYLE: React.CSSProperties = {
+  fontSize: 12,
+  fontFamily: CHART_FONT,
+  backgroundColor: "#FFFFFF",
+  border: `1px solid ${GRID_STROKE}`,
+  borderRadius: 6,
+  boxShadow: "0 2px 8px rgba(42, 22, 111, 0.12)",
+};
+
+const PIE_COLORS = [STATUS_GREEN, STATUS_RED];
 
 const StatsView: React.FC<StatsViewProps> = ({ stats }) => {
   const pieData = [
@@ -42,56 +61,37 @@ const StatsView: React.FC<StatsViewProps> = ({ stats }) => {
 
   const barColor = (status: string) =>
     status === "available"
-      ? "#28a745"
+      ? STATUS_GREEN
       : status === "full"
-        ? "#dc3545"
-        : "#ffc107";
+        ? STATUS_RED
+        : STATUS_AMBER;
+
+  const utilisationTextClass = (pct: number) =>
+    pct === 0
+      ? "text-status-success-fg"
+      : pct >= 100
+        ? "text-status-alert-fg"
+        : "text-status-warning-fg";
 
   return (
     <div className="space-y-6">
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {[
-          { label: "Resources", value: stats.totalResources, color: "#333333" },
-          {
-            label: "Total Chromebooks",
-            value: stats.totalChromebooks,
-            color: "#333333",
-          },
-          {
-            label: "Active Bookings",
-            value: stats.activeBookings,
-            color: "#ffc107",
-          },
+          { label: "Resources", value: stats.totalResources },
+          { label: "Total Chromebooks", value: stats.totalChromebooks },
+          { label: "Active Bookings", value: stats.activeBookings },
           ...(stats.overdueBookings > 0
-            ? [
-                {
-                  label: "Overdue",
-                  value: stats.overdueBookings,
-                  color: "#dc3545",
-                },
-              ]
+            ? [{ label: "Overdue", value: stats.overdueBookings }]
             : []),
-          {
-            label: "Returned",
-            value: stats.returnedBookings,
-            color: "#28a745",
-          },
-          {
-            label: "Fully Booked Now",
-            value: stats.fullyBookedResources,
-            color: "#dc3545",
-          },
+          { label: "Returned", value: stats.returnedBookings },
+          { label: "Fully Booked Now", value: stats.fullyBookedResources },
         ].map((card) => (
-          <div
-            key={card.label}
-            className="rounded-lg border p-4 text-center"
-            style={{ borderColor: "#333333", backgroundColor: "#f8f9fa" }}
-          >
-            <p className="text-2xl font-bold" style={{ color: card.color }}>
+          <div key={card.label} className="sp-card-gold p-4 text-center">
+            <p className="font-mono text-2xl font-semibold text-purple-800">
               {card.value}
             </p>
-            <p className="text-xs text-gray-600 mt-1 font-medium">
+            <p className="text-xs uppercase tracking-wide text-ink-500 mt-1">
               {card.label}
             </p>
           </div>
@@ -99,11 +99,8 @@ const StatsView: React.FC<StatsViewProps> = ({ stats }) => {
       </div>
 
       {/* Bar chart – utilisation per resource */}
-      <div
-        className="rounded-lg border p-4"
-        style={{ borderColor: "#333333", backgroundColor: "#ffffff" }}
-      >
-        <h3 className="text-sm font-semibold text-gray-800 mb-3">
+      <div className="sp-card p-4">
+        <h3 className="sp-rule-gold inline-block pb-1 text-sm font-semibold text-purple-800 mb-3">
           Current Utilisation by Resource (%)
         </h3>
         <div className="overflow-x-auto -mx-2">
@@ -113,23 +110,31 @@ const StatsView: React.FC<StatsViewProps> = ({ stats }) => {
                 data={barData}
                 margin={{ top: 5, right: 10, left: -20, bottom: 40 }}
               >
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} />
                 <XAxis
                   dataKey="name"
-                  tick={{ fontSize: 10, fill: "#555" }}
+                  tick={{
+                    fontSize: 12,
+                    fill: AXIS_TEXT,
+                    fontFamily: CHART_FONT,
+                  }}
                   angle={-30}
                   textAnchor="end"
                 />
                 <YAxis
                   domain={[0, 100]}
-                  tick={{ fontSize: 11, fill: "#555" }}
+                  tick={{
+                    fontSize: 12,
+                    fill: AXIS_TEXT,
+                    fontFamily: CHART_FONT,
+                  }}
                   unit="%"
                 />
                 <Tooltip
                   formatter={(value) =>
                     [`${value ?? 0}%`, "Utilisation"] as [string, string]
                   }
-                  contentStyle={{ fontSize: 12 }}
+                  contentStyle={TOOLTIP_STYLE}
                 />
                 <Bar dataKey="utilisation" radius={[3, 3, 0, 0]}>
                   {barData.map((entry, i) => (
@@ -143,11 +148,8 @@ const StatsView: React.FC<StatsViewProps> = ({ stats }) => {
       </div>
 
       {/* Pie chart – resource availability split */}
-      <div
-        className="rounded-lg border p-4"
-        style={{ borderColor: "#333333", backgroundColor: "#ffffff" }}
-      >
-        <h3 className="text-sm font-semibold text-gray-800 mb-3">
+      <div className="sp-card p-4">
+        <h3 className="sp-rule-gold inline-block pb-1 text-sm font-semibold text-purple-800 mb-3">
           Resource Availability Now
         </h3>
         <ResponsiveContainer width="100%" height={180}>
@@ -165,77 +167,66 @@ const StatsView: React.FC<StatsViewProps> = ({ stats }) => {
               labelLine={false}
             >
               {pieData.map((_, i) => (
-                <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
               ))}
             </Pie>
-            <Legend iconSize={10} iconType="circle" />
-            <Tooltip />
+            <Legend
+              iconSize={10}
+              iconType="circle"
+              wrapperStyle={{ fontSize: 12, fontFamily: CHART_FONT }}
+            />
+            <Tooltip contentStyle={TOOLTIP_STYLE} />
           </PieChart>
         </ResponsiveContainer>
       </div>
 
       {/* Booking status table */}
-      <div
-        className="rounded-lg border overflow-hidden"
-        style={{ borderColor: "#333333" }}
-      >
+      <div className="sp-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[480px] text-sm">
-            <thead style={{ backgroundColor: "#333333", color: "#ffffff" }}>
+            <thead className="bg-ink-50">
               <tr>
-                <th className="text-left px-4 py-2 font-semibold">Resource</th>
-                <th className="text-center px-4 py-2 font-semibold">Room</th>
-                <th className="text-center px-4 py-2 font-semibold">In Use</th>
-                <th className="text-center px-4 py-2 font-semibold">
+                <th className="text-left px-4 py-2 text-xs font-semibold uppercase tracking-wide text-ink-600">
+                  Resource
+                </th>
+                <th className="text-center px-4 py-2 text-xs font-semibold uppercase tracking-wide text-ink-600">
+                  Room
+                </th>
+                <th className="text-center px-4 py-2 text-xs font-semibold uppercase tracking-wide text-ink-600">
+                  In Use
+                </th>
+                <th className="text-center px-4 py-2 text-xs font-semibold uppercase tracking-wide text-ink-600">
                   Available
                 </th>
-                <th className="text-center px-4 py-2 font-semibold">
+                <th className="text-center px-4 py-2 text-xs font-semibold uppercase tracking-wide text-ink-600">
                   Utilisation
                 </th>
               </tr>
             </thead>
-            <tbody>
-              {stats.resourceStats.map((r, i) => {
-                const bgColor =
-                  r.utilisationPct === 0
-                    ? "#f0fff4"
-                    : r.utilisationPct >= 100
-                      ? "#fff5f5"
-                      : "#fffbf0";
-                return (
-                  <tr
-                    key={r.id}
-                    style={{
-                      backgroundColor: i % 2 === 0 ? bgColor : "#f8f9fa",
-                      borderBottom: "1px solid #e5e7eb",
-                    }}
-                  >
-                    <td className="px-4 py-2 font-medium text-gray-900">
-                      {r.name}
-                    </td>
-                    <td className="px-4 py-2 text-center text-gray-600">
-                      {r.classRoom}
-                    </td>
-                    <td className="px-4 py-2 text-center">{r.currentBooked}</td>
-                    <td className="px-4 py-2 text-center">{r.availableNow}</td>
-                    <td className="px-4 py-2 text-center">
-                      <span
-                        className="font-semibold"
-                        style={{
-                          color:
-                            r.utilisationPct === 0
-                              ? "#28a745"
-                              : r.utilisationPct >= 100
-                                ? "#dc3545"
-                                : "#856404",
-                        }}
-                      >
-                        {r.utilisationPct}%
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
+            <tbody className="divide-y divide-ink-100">
+              {stats.resourceStats.map((r) => (
+                <tr key={r.id} className="hover:bg-purple-50">
+                  <td className="px-4 py-2 font-medium text-ink-900">
+                    {r.name}
+                  </td>
+                  <td className="px-4 py-2 text-center text-ink-500">
+                    {r.classRoom}
+                  </td>
+                  <td className="px-4 py-2 text-center font-mono text-ink-800">
+                    {r.currentBooked}
+                  </td>
+                  <td className="px-4 py-2 text-center font-mono text-ink-800">
+                    {r.availableNow}
+                  </td>
+                  <td className="px-4 py-2 text-center">
+                    <span
+                      className={`font-mono font-semibold ${utilisationTextClass(r.utilisationPct)}`}
+                    >
+                      {r.utilisationPct}%
+                    </span>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
@@ -243,54 +234,45 @@ const StatsView: React.FC<StatsViewProps> = ({ stats }) => {
 
       {/* Staff / Admin Usage */}
       {stats.staffUsage && stats.staffUsage.length > 0 && (
-        <div
-          className="rounded-lg border overflow-hidden"
-          style={{ borderColor: "#333333" }}
-        >
-          <div
-            className="px-4 py-2 text-sm font-semibold text-white"
-            style={{ backgroundColor: "#333333" }}
-          >
-            Staff / Admin Usage ({stats.totalUniqueStaff} unique users)
+        <div className="sp-card overflow-hidden">
+          <div className="px-4 pt-3">
+            <h3 className="sp-rule-gold inline-block pb-1 text-sm font-semibold text-purple-800 mb-3">
+              Staff / Admin Usage ({stats.totalUniqueStaff} unique users)
+            </h3>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[400px] text-sm">
-              <thead>
-                <tr
-                  style={{
-                    borderBottom: "1px solid #e5e7eb",
-                    backgroundColor: "#f8f9fa",
-                  }}
-                >
-                  <th className="text-left px-4 py-2 font-semibold text-gray-700">
+              <thead className="bg-ink-50">
+                <tr>
+                  <th className="text-left px-4 py-2 text-xs font-semibold uppercase tracking-wide text-ink-600">
                     Name
                   </th>
-                  <th className="text-center px-4 py-2 font-semibold text-gray-700">
+                  <th className="text-center px-4 py-2 text-xs font-semibold uppercase tracking-wide text-ink-600">
                     Total
                   </th>
-                  <th className="text-center px-4 py-2 font-semibold text-gray-700">
+                  <th className="text-center px-4 py-2 text-xs font-semibold uppercase tracking-wide text-ink-600">
                     Active
                   </th>
-                  <th className="text-center px-4 py-2 font-semibold text-gray-700">
+                  <th className="text-center px-4 py-2 text-xs font-semibold uppercase tracking-wide text-ink-600">
                     Returned
                   </th>
                 </tr>
               </thead>
-              <tbody>
-                {stats.staffUsage.map((su, i) => (
-                  <tr
-                    key={su.name}
-                    style={{
-                      backgroundColor: i % 2 === 0 ? "#fff" : "#f8f9fa",
-                      borderBottom: "1px solid #e5e7eb",
-                    }}
-                  >
-                    <td className="px-4 py-2 font-medium text-gray-900">
+              <tbody className="divide-y divide-ink-100">
+                {stats.staffUsage.map((su) => (
+                  <tr key={su.name} className="hover:bg-purple-50">
+                    <td className="px-4 py-2 font-medium text-ink-900">
                       {su.name}
                     </td>
-                    <td className="px-4 py-2 text-center">{su.total}</td>
-                    <td className="px-4 py-2 text-center">{su.active}</td>
-                    <td className="px-4 py-2 text-center">{su.returned}</td>
+                    <td className="px-4 py-2 text-center font-mono text-ink-800">
+                      {su.total}
+                    </td>
+                    <td className="px-4 py-2 text-center font-mono text-ink-800">
+                      {su.active}
+                    </td>
+                    <td className="px-4 py-2 text-center font-mono text-ink-800">
+                      {su.returned}
+                    </td>
                   </tr>
                 ))}
               </tbody>

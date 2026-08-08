@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { AlertTriangle, ShieldCheck } from "lucide-react";
 import { setupSecurityQuestions } from "../api";
 
 interface Props {
@@ -47,22 +48,21 @@ export default function SecuritySetupModal({ onComplete, onSkip }: Props) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ backgroundColor: "rgba(0,0,0,0.7)" }}
+      style={{ backgroundColor: "rgba(20,10,56,.60)" }}
     >
-      <div
-        className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto"
-        style={{ border: "2px solid #333333" }}
-      >
-        {/* Header */}
-        <div
-          className="px-5 py-4"
-          style={{ borderBottom: "1px solid #e5e7eb" }}
-        >
-          <div className="text-2xl mb-1">🔐</div>
-          <h2 className="text-lg font-bold text-gray-900">
+      <div className="bg-white rounded-md shadow-xl border border-ink-200 w-full max-w-md max-h-[90vh] overflow-y-auto">
+        {/* Header carries the 4px gold rule, the house masthead accent */}
+        <div className="px-5 py-4 sp-rule-gold">
+          <h2 className="flex items-center gap-2 text-lg font-bold text-purple-800">
+            <ShieldCheck
+              size={20}
+              strokeWidth={2}
+              aria-hidden="true"
+              className="flex-shrink-0"
+            />
             Set Up Security Questions
           </h2>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-sm text-ink-500 mt-1">
             These answers let you reset your password without email. They are{" "}
             <strong>encrypted</strong> and never stored in plain text. Please
             remember them exactly.
@@ -72,11 +72,14 @@ export default function SecuritySetupModal({ onComplete, onSkip }: Props) {
         {/* Body */}
         <form onSubmit={handleSubmit} className="px-5 py-4 space-y-4">
           {error && (
-            <div
-              className="px-3 py-2 rounded text-sm"
-              style={{ backgroundColor: "#f8d7da", color: "#dc3545" }}
-            >
-              {error}
+            <div className="sp-banner-alert flex items-start gap-2">
+              <AlertTriangle
+                size={16}
+                strokeWidth={2}
+                aria-hidden="true"
+                className="mt-0.5 flex-shrink-0"
+              />
+              <span>{error}</span>
             </div>
           )}
 
@@ -98,49 +101,47 @@ export default function SecuritySetupModal({ onComplete, onSkip }: Props) {
             },
           ].map(({ label, value, setter }) => (
             <div key={label}>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                {label}
-              </label>
+              <label className="sp-label">{label}</label>
               <input
                 type="text"
                 value={value}
                 onChange={(e) => setter(e.target.value)}
                 placeholder="Your answer"
-                className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
-                style={{ borderColor: "#ccc" }}
+                className="sp-input"
                 required
               />
-              <p className="text-xs text-gray-400 mt-0.5">
-                🔒 Encrypted — only used to verify your identity if you forget
+              <p className="flex items-center gap-1 text-xs text-ink-500 mt-1">
+                <ShieldCheck size={14} strokeWidth={2} aria-hidden="true" />
+                Encrypted — only used to verify your identity if you forget
                 your password
               </p>
             </div>
           ))}
 
-          <div
-            className="rounded px-3 py-2 text-xs text-gray-600"
-            style={{ backgroundColor: "#fff3cd", border: "1px solid #ffc107" }}
-          >
-            ⚠️ Remember your answers carefully. Spelling and spacing matter, but
-            capitalisation does not (e.g. "blue" = "Blue" = "BLUE").
+          <div className="sp-banner-warning flex items-start gap-2 text-xs">
+            <AlertTriangle
+              size={16}
+              strokeWidth={2}
+              aria-hidden="true"
+              className="mt-0.5 flex-shrink-0"
+            />
+            <span>
+              Remember your answers carefully. Spelling and spacing matter,
+              but capitalisation does not (e.g. "blue" = "Blue" = "BLUE").
+            </span>
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2 rounded font-medium text-sm transition-opacity"
-            style={{
-              backgroundColor: "#333333",
-              color: "#fff",
-              opacity: loading ? 0.7 : 1,
-            }}
+            className="sp-btn-primary w-full"
           >
             {loading ? "Saving…" : "Save Security Questions"}
           </button>
           <button
             type="button"
             onClick={onSkip}
-            className="w-full text-xs text-gray-500 underline"
+            className="w-full text-xs text-purple-700 underline hover:text-purple-500"
           >
             Not now — remind me later
           </button>

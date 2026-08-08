@@ -1,20 +1,86 @@
 /** @type {import('tailwindcss').Config} */
+// Palette and scales come from the Stonepark Tigers Design System
+// ("Stonepark Tigers Design System/tokens/"). Keep the two in sync.
 module.exports = {
   content: ["./src/**/*.{js,jsx,ts,tsx}"],
   theme: {
     extend: {
       colors: {
-        available: '#28a745',
-        partial: '#ffc107',
-        full: '#dc3545',
-        border: '#333333',
-        bg: '#f8f9fa',
+        purple: {
+          50: '#F4F1FC',
+          100: '#E5DFF7',
+          200: '#C6BAEC',
+          300: '#9C89DC',
+          500: '#5136B4',
+          600: '#3B2192',
+          700: '#2A166F',
+          800: '#1E1151',
+          900: '#140A38',
+        },
+        gold: {
+          100: '#FFFDD8',
+          200: '#FEFAA8',
+          400: '#FDF64F',
+          500: '#FCF204',
+          600: '#C9BE00',
+          700: '#7A6E00',
+          800: '#5C5300',
+        },
+        ink: {
+          50: '#F7F6FA',
+          100: '#EDEBF2',
+          200: '#DDD9E5',
+          300: '#BFBACB',
+          400: '#9994AA',
+          500: '#726B87',
+          600: '#544D6B',
+          700: '#3A3450',
+          800: '#241F33',
+          900: '#15121F',
+        },
+        status: {
+          'alert-bg': '#FBE7E5',
+          'alert-fg': '#8F1C16',
+          'alert-edge': '#C0271F',
+          'warning-bg': '#FDF0DC',
+          'warning-fg': '#B06B00',
+          'warning-edge': '#E08A00',
+          'success-bg': '#E1F3EA',
+          'success-fg': '#155C39',
+          'success-edge': '#1E7A4C',
+          'info-bg': '#E4EDF9',
+          'info-fg': '#143C77',
+          'info-edge': '#1B4E9B',
+        },
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        sans: ['"Source Sans 3"', '"Source Sans Pro"', 'system-ui', '-apple-system', 'sans-serif'],
+        serif: ['Bitter', 'Georgia', 'serif'],
+        display: ['Anton', '"Arial Narrow"', 'Impact', 'sans-serif'],
+        varsity: ['Graduate', 'Georgia', 'serif'],
+        mono: ['"IBM Plex Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+      },
+      boxShadow: {
+        xs: '0 1px 2px rgba(20,10,56,.08)',
+        sm: '0 1px 3px rgba(20,10,56,.10),0 1px 2px rgba(20,10,56,.06)',
+        md: '0 4px 12px rgba(20,10,56,.10)',
+        lg: '0 12px 28px rgba(20,10,56,.14)',
+        xl: '0 24px 56px rgba(20,10,56,.18)',
+        brand: '0 6px 20px rgba(42,22,111,.28)',
+        'inset-gold': 'inset 0 4px 0 #FCF204',
+        'ring-focus': '0 0 0 3px rgba(252,242,4,.45)',
+      },
+      borderRadius: {
+        DEFAULT: '6px',
+        sm: '3px',
+        md: '6px',
+        lg: '10px',
+        xl: '16px',
+      },
+      maxWidth: {
+        layout: '1160px',
       },
     },
   },
   plugins: [require('@tailwindcss/forms')],
 }
-

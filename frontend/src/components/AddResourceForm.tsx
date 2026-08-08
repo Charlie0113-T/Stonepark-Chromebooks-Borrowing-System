@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { AlertTriangle } from "lucide-react";
 import { createResource } from "../api";
 import { CreateResourcePayload, ResourceType } from "../types";
 
@@ -45,32 +46,27 @@ const AddResourceForm: React.FC<AddResourceFormProps> = ({
     }
   };
 
-  const inputClass =
-    "w-full rounded border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 bg-[#f8f9fa]";
-  const labelClass = "block text-sm font-medium text-gray-700 mb-1";
-
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {/* Type */}
       <div>
-        <label className={labelClass} htmlFor="resourceType">
+        <label className="sp-label" htmlFor="resourceType">
           Type *
         </label>
         <select
           id="resourceType"
           value={type}
           onChange={(e) => setType(e.target.value as ResourceType)}
-          className={inputClass}
-          style={{ borderColor: "#333333" }}
+          className="sp-input"
         >
-          <option value="cabinet">⚡ Cabinet</option>
-          <option value="single">💻 Single Chromebook</option>
+          <option value="cabinet">Cabinet</option>
+          <option value="single">Single Chromebook</option>
         </select>
       </div>
 
       {/* Name */}
       <div>
-        <label className={labelClass} htmlFor="resourceName">
+        <label className="sp-label" htmlFor="resourceName">
           Name *
         </label>
         <input
@@ -80,14 +76,13 @@ const AddResourceForm: React.FC<AddResourceFormProps> = ({
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="e.g. Cabinet A1"
-          className={inputClass}
-          style={{ borderColor: "#333333" }}
+          className="sp-input"
         />
       </div>
 
       {/* Room / Location */}
       <div>
-        <label className={labelClass} htmlFor="resourceRoom">
+        <label className="sp-label" htmlFor="resourceRoom">
           Room / Location *
         </label>
         <input
@@ -97,15 +92,14 @@ const AddResourceForm: React.FC<AddResourceFormProps> = ({
           value={classRoom}
           onChange={(e) => setClassRoom(e.target.value)}
           placeholder="e.g. Room 12"
-          className={inputClass}
-          style={{ borderColor: "#333333" }}
+          className="sp-input"
         />
       </div>
 
       {/* Total Quantity (cabinet only) */}
       {type === "cabinet" && (
         <div>
-          <label className={labelClass} htmlFor="resourceQuantity">
+          <label className="sp-label" htmlFor="resourceQuantity">
             Total Quantity *
           </label>
           <input
@@ -117,15 +111,14 @@ const AddResourceForm: React.FC<AddResourceFormProps> = ({
             onChange={(e) =>
               setTotalQuantity(parseInt(e.target.value, 10) || 1)
             }
-            className={inputClass}
-            style={{ borderColor: "#333333" }}
+            className="sp-input font-mono"
           />
         </div>
       )}
 
       {/* Description */}
       <div>
-        <label className={labelClass} htmlFor="resourceDescription">
+        <label className="sp-label" htmlFor="resourceDescription">
           Description
         </label>
         <textarea
@@ -134,22 +127,20 @@ const AddResourceForm: React.FC<AddResourceFormProps> = ({
           onChange={(e) => setDescription(e.target.value)}
           rows={2}
           placeholder="Optional description"
-          className={inputClass}
-          style={{ borderColor: "#333333" }}
+          className="sp-input"
         />
       </div>
 
       {/* Error */}
       {error && (
-        <div
-          className="rounded p-3 text-sm font-medium"
-          style={{
-            backgroundColor: "#f8d7da",
-            color: "#dc3545",
-            border: "1px solid #dc3545",
-          }}
-        >
-          {error}
+        <div className="sp-banner-alert flex items-start gap-2">
+          <AlertTriangle
+            size={16}
+            strokeWidth={2}
+            aria-hidden="true"
+            className="shrink-0 mt-0.5"
+          />
+          <span>{error}</span>
         </div>
       )}
 
@@ -158,16 +149,14 @@ const AddResourceForm: React.FC<AddResourceFormProps> = ({
         <button
           type="button"
           onClick={onCancel}
-          className="flex-1 py-2 text-sm font-medium rounded border transition-colors hover:bg-gray-100"
-          style={{ borderColor: "#333333", color: "#333333" }}
+          className="sp-btn-secondary flex-1"
         >
           Cancel
         </button>
         <button
           type="submit"
           disabled={loading}
-          className="flex-1 py-2 text-sm font-medium rounded transition-colors disabled:opacity-50"
-          style={{ backgroundColor: "#333333", color: "#ffffff" }}
+          className="sp-btn-primary flex-1"
         >
           {loading ? "Adding…" : "Add Resource"}
         </button>

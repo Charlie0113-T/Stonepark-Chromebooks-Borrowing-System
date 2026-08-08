@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from "react";
+import { X } from "lucide-react";
 
 interface ModalProps {
   title: string;
@@ -24,9 +25,10 @@ const Modal: React.FC<ModalProps> = ({ title, onClose, children }) => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4">
-      {/* Backdrop */}
+      {/* Backdrop — the design system's purple modal scrim */}
       <div
-        className="absolute inset-0 bg-black bg-opacity-50"
+        className="absolute inset-0"
+        style={{ backgroundColor: "rgba(20,10,56,.60)" }}
         onClick={onClose}
         aria-hidden="true"
       />
@@ -34,29 +36,27 @@ const Modal: React.FC<ModalProps> = ({ title, onClose, children }) => {
       <div
         ref={dialogRef}
         tabIndex={-1}
-        className="relative bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-lg shadow-xl max-h-[92vh] sm:max-h-[90vh] overflow-y-auto focus:outline-none"
-        style={{ border: "2px solid #333333", paddingBottom: "env(safe-area-inset-bottom)" }}
+        className="relative bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-lg shadow-xl max-h-[92vh] sm:max-h-[90vh] overflow-y-auto focus:outline-none border border-ink-200"
+        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
       >
         {/* Drag handle (mobile only) */}
         <div className="flex justify-center pt-3 pb-1 sm:hidden">
-          <div className="w-10 h-1 rounded-full bg-gray-300" aria-hidden="true" />
+          <div className="w-10 h-1 rounded-full bg-ink-300" aria-hidden="true" />
         </div>
-        <div
-          className="flex items-center justify-between px-5 py-3 sm:py-4"
-          style={{ borderBottom: "1px solid #333333" }}
-        >
-          <h2 id={titleId} className="text-base sm:text-lg font-semibold text-gray-900">
+        {/* Header carries the 4px gold rule, the house masthead accent */}
+        <div className="flex items-center justify-between px-5 py-3 sm:py-4 sp-rule-gold">
+          <h2 id={titleId} className="text-base sm:text-lg font-bold text-purple-800">
             {title}
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-700 text-xl leading-none p-1 -mr-1"
+            className="text-ink-400 hover:text-purple-700 p-1 -mr-1 rounded-sm"
             aria-label="Close"
           >
-            ×
+            <X size={20} strokeWidth={2} />
           </button>
         </div>
         <div className="px-5 py-4">{children}</div>

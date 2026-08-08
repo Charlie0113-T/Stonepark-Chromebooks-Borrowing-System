@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Calendar, momentLocalizer, Event } from 'react-big-calendar';
 import moment from 'moment';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
+import { AlertTriangle, X } from 'lucide-react';
 import { fetchBookings, fetchResources } from '../api';
 import { Booking } from '../types';
 
@@ -15,13 +16,15 @@ interface CalendarEvent extends Event {
   isOverdue: boolean;
 }
 
+// Design-system event colours: purple ink for live bookings, the status
+// trio's green for returned, alert red for overdue, neutral for cancelled.
 const STATUS_COLORS: Record<string, string> = {
-  active: '#333333',
-  returned: '#28a745',
-  cancelled: '#adb5bd',
+  active: '#2A166F',
+  returned: '#1E7A4C',
+  cancelled: '#9994AA',
 };
 
-const OVERDUE_COLOR = '#dc3545';
+const OVERDUE_COLOR = '#C0271F';
 
 export default function CalendarView() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
@@ -82,12 +85,12 @@ export default function CalendarView() {
   const eventStyleGetter = (event: CalendarEvent) => {
     const bgColor = event.isOverdue
       ? OVERDUE_COLOR
-      : STATUS_COLORS[event.status] || '#333333';
+      : STATUS_COLORS[event.status] || '#2A166F';
     return {
       style: {
         backgroundColor: bgColor,
-        color: '#fff',
-        borderRadius: '4px',
+        color: '#ffffff',
+        borderRadius: '3px',
         border: 'none',
         fontSize: '12px',
         padding: '1px 4px',
@@ -97,16 +100,14 @@ export default function CalendarView() {
   };
 
   if (loading) {
-    return <div className="text-center py-20 text-gray-500">Loading calendar…</div>;
+    return <div className="text-center py-20 text-ink-500">Loading calendar…</div>;
   }
 
   if (loadError) {
     return (
-      <div
-        className="rounded px-4 py-3 text-sm font-medium"
-        style={{ backgroundColor: '#f8d7da', color: '#dc3545', border: '1px solid #dc3545' }}
-      >
-        ⚠️ {loadError}
+      <div className="sp-banner-alert flex items-center gap-2">
+        <AlertTriangle size={16} strokeWidth={2} aria-hidden="true" />
+        {loadError}
       </div>
     );
   }
@@ -114,25 +115,25 @@ export default function CalendarView() {
   return (
     <div>
       <div className="flex flex-wrap items-center gap-2 mb-4">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-600">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-600">
           <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded inline-block" style={{ backgroundColor: STATUS_COLORS.active }} />
+            <span className="w-3 h-3 rounded-sm inline-block" style={{ backgroundColor: STATUS_COLORS.active }} />
             Active
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded inline-block" style={{ backgroundColor: OVERDUE_COLOR }} />
+            <span className="w-3 h-3 rounded-sm inline-block" style={{ backgroundColor: OVERDUE_COLOR }} />
             Overdue
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded inline-block" style={{ backgroundColor: STATUS_COLORS.returned }} />
+            <span className="w-3 h-3 rounded-sm inline-block" style={{ backgroundColor: STATUS_COLORS.returned }} />
             Returned
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded inline-block" style={{ backgroundColor: STATUS_COLORS.cancelled }} />
+            <span className="w-3 h-3 rounded-sm inline-block" style={{ backgroundColor: STATUS_COLORS.cancelled }} />
             Cancelled
           </span>
         </div>
-        <span className="ml-auto text-xs text-gray-500">{events.length} bookings</span>
+        <span className="ml-auto text-xs text-ink-500">{events.length} bookings</span>
       </div>
 
       <div className="overflow-x-auto -mx-4 sm:mx-0">
@@ -147,38 +148,42 @@ export default function CalendarView() {
             eventPropGetter={eventStyleGetter}
             onSelectEvent={(event) => setSelectedEvent(event)}
             popup
-            style={{ fontFamily: 'Inter, system-ui, sans-serif', fontSize: isMobile ? 11 : 13 }}
+            style={{ fontFamily: "'Source Sans 3', system-ui, sans-serif", fontSize: isMobile ? 11 : 13 }}
           />
         </div>
       </div>
 
       {/* Event detail panel */}
       {selectedEvent && (
-        <div
-          className="mt-4 p-4 rounded border text-sm"
-          style={{ borderColor: '#333333', backgroundColor: '#fff' }}
-        >
+        <div className="mt-4 p-4 rounded-md border border-ink-200 bg-white text-sm shadow-sm">
           <div className="flex items-center justify-between mb-2">
-            <strong>{selectedEvent.title}</strong>
+            <strong className="text-purple-800">{selectedEvent.title}</strong>
             <button
               onClick={() => setSelectedEvent(null)}
-              className="text-gray-400 hover:text-gray-600 text-lg leading-none"
+              className="text-ink-400 hover:text-ink-600 transition-colors"
               aria-label="Close"
             >
-              ×
+              <X size={16} strokeWidth={2} aria-hidden="true" />
             </button>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-gray-700">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-ink-700">
             <span className="font-medium">Resource:</span><span>{selectedEvent.resourceName}</span>
             <span className="font-medium">Borrower:</span><span>{selectedEvent.borrower}</span>
-            <span className="font-medium">Start:</span><span>{new Date(selectedEvent.start as Date).toLocaleString()}</span>
-            <span className="font-medium">End:</span><span>{new Date(selectedEvent.end as Date).toLocaleString()}</span>
+            <span className="font-medium">Start:</span><span className="font-mono">{new Date(selectedEvent.start as Date).toLocaleString()}</span>
+            <span className="font-medium">End:</span><span className="font-mono">{new Date(selectedEvent.end as Date).toLocaleString()}</span>
             <span className="font-medium">Status:</span>
-            <span className={selectedEvent.isOverdue ? 'text-red-600 font-semibold' : ''}>
-              {selectedEvent.isOverdue ? '⚠️ Overdue' : selectedEvent.status}
+            <span className={selectedEvent.isOverdue ? 'text-status-alert-fg font-semibold inline-flex items-center gap-1' : 'capitalize'}>
+              {selectedEvent.isOverdue ? (
+                <>
+                  <AlertTriangle size={14} strokeWidth={2} aria-hidden="true" />
+                  Overdue
+                </>
+              ) : (
+                selectedEvent.status
+              )}
             </span>
             <span className="font-medium">Booking ID:</span>
-            <span className="font-mono text-xs text-gray-500 break-all">{selectedEvent.bookingId}</span>
+            <span className="font-mono text-xs text-ink-500 break-all">{selectedEvent.bookingId}</span>
           </div>
         </div>
       )}

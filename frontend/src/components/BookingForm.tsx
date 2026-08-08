@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import { CalendarDays, MapPin } from "lucide-react";
 import { AuthUser, createBooking, fetchBookings } from "../api";
 import { CreateBookingPayload, Resource } from "../types";
 
@@ -144,26 +145,23 @@ const BookingForm: React.FC<BookingFormProps> = ({
     }
   };
 
-  const inputClass =
-    "w-full rounded border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 bg-[#f8f9fa]";
-  const labelClass = "block text-sm font-medium text-gray-700 mb-1";
+  const inputClass = "sp-input";
+  const labelClass = "sp-label";
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {/* Resource Info */}
-      <div
-        className="rounded p-3 text-sm"
-        style={{ backgroundColor: "#f8f9fa", border: "1px solid #333333" }}
-      >
-        <p className="font-semibold text-gray-900">{resource.name}</p>
-        <p className="text-gray-500">
+      <div className="rounded-md border border-ink-200 bg-ink-50 p-3 text-sm">
+        <p className="font-semibold text-purple-800">{resource.name}</p>
+        <p className="text-ink-500 flex items-center gap-1.5">
+          <MapPin size={14} strokeWidth={2} aria-hidden="true" />
           {resource.classRoom} ·{" "}
           {resource.type === "cabinet"
             ? "Charging Cabinet"
             : "Single Chromebook"}
         </p>
         {resource.type === "cabinet" && (
-          <p className="text-gray-600 mt-1">
+          <p className="text-ink-600 mt-1">
             Currently available: <strong>{resource.availableNow}</strong> of{" "}
             <strong>{resource.totalQuantity}</strong> units
           </p>
@@ -183,7 +181,6 @@ const BookingForm: React.FC<BookingFormProps> = ({
           onChange={(e) => setBorrower(e.target.value)}
           placeholder="e.g. Ms. Johnson"
           className={inputClass}
-          style={{ borderColor: "#333333" }}
         />
       </div>
 
@@ -200,7 +197,6 @@ const BookingForm: React.FC<BookingFormProps> = ({
           onChange={(e) => setBorrowerClass(e.target.value)}
           placeholder="e.g. Year 7A"
           className={inputClass}
-          style={{ borderColor: "#333333" }}
         />
       </div>
 
@@ -226,9 +222,8 @@ const BookingForm: React.FC<BookingFormProps> = ({
               )
             }
             className={inputClass}
-            style={{ borderColor: "#333333" }}
           />
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-ink-500 mt-1">
             {checkingAvailability ? (
               "Checking availability for this time…"
             ) : availableForSlot !== null ? (
@@ -258,10 +253,10 @@ const BookingForm: React.FC<BookingFormProps> = ({
               const input = startTimeInputRef.current?.querySelector("input");
               input?.focus();
             }}
-            className="text-lg text-gray-600 hover:text-gray-900 transition-colors"
+            className="text-purple-700 hover:text-purple-800 transition-colors"
             title="Open date picker"
           >
-            📅
+            <CalendarDays size={16} strokeWidth={2} aria-hidden="true" />
           </button>
         </div>
         <div ref={startTimeInputRef}>
@@ -270,7 +265,7 @@ const BookingForm: React.FC<BookingFormProps> = ({
             onChange={(date: Date | null) => setStartTime(date)}
             showTimeSelect
             dateFormat="Pp"
-            className={inputClass}
+            className={`${inputClass} font-mono`}
             wrapperClassName="w-full"
             placeholderText="Select start time"
           />
@@ -289,10 +284,10 @@ const BookingForm: React.FC<BookingFormProps> = ({
               const input = endTimeInputRef.current?.querySelector("input");
               input?.focus();
             }}
-            className="text-lg text-gray-600 hover:text-gray-900 transition-colors"
+            className="text-purple-700 hover:text-purple-800 transition-colors"
             title="Open date picker"
           >
-            📅
+            <CalendarDays size={16} strokeWidth={2} aria-hidden="true" />
           </button>
         </div>
         <div ref={endTimeInputRef}>
@@ -302,7 +297,7 @@ const BookingForm: React.FC<BookingFormProps> = ({
             showTimeSelect
             dateFormat="Pp"
             minDate={startTime || undefined}
-            className={inputClass}
+            className={`${inputClass} font-mono`}
             wrapperClassName="w-full"
             placeholderText="Select end time"
           />
@@ -321,39 +316,25 @@ const BookingForm: React.FC<BookingFormProps> = ({
           rows={2}
           placeholder="Optional notes (e.g. Science project)"
           className={inputClass}
-          style={{ borderColor: "#333333" }}
         />
       </div>
 
       {/* Error */}
-      {error && (
-        <div
-          className="rounded p-3 text-sm font-medium"
-          style={{
-            backgroundColor: "#f8d7da",
-            color: "#dc3545",
-            border: "1px solid #dc3545",
-          }}
-        >
-          {error}
-        </div>
-      )}
+      {error && <div className="sp-banner-alert">{error}</div>}
 
       {/* Actions */}
       <div className="flex gap-3 pt-1">
         <button
           type="button"
           onClick={onCancel}
-          className="flex-1 py-2 text-sm font-medium rounded border transition-colors hover:bg-gray-100"
-          style={{ borderColor: "#333333", color: "#333333" }}
+          className="sp-btn-secondary flex-1"
         >
           Cancel
         </button>
         <button
           type="submit"
           disabled={loading}
-          className="flex-1 py-2 text-sm font-medium rounded transition-colors disabled:opacity-50"
-          style={{ backgroundColor: "#333333", color: "#ffffff" }}
+          className="sp-btn-primary flex-1"
         >
           {loading ? "Booking…" : "Confirm Booking"}
         </button>

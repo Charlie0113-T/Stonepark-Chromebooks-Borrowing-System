@@ -36,8 +36,8 @@
   "start_url": ".",
   "display": "standalone",
   "orientation": "any",
-  "theme_color": "#333333",
-  "background_color": "#f8f9fa",
+  "theme_color": "#2A166F",
+  "background_color": "#F7F6FA",
   "categories": ["education", "productivity"],
   "scope": "/"
 }

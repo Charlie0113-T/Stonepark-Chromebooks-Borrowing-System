@@ -1,4 +1,19 @@
 import React, { useCallback, useEffect, useState } from "react";
+import {
+  AlertTriangle,
+  BarChart3,
+  BookOpen,
+  CalendarDays,
+  CheckCircle2,
+  KeyRound,
+  LayoutGrid,
+  LogOut,
+  Plus,
+  QrCode,
+  Search,
+  ShieldCheck,
+  Users,
+} from "lucide-react";
 import "./App.css";
 import {
   addWhitelistEmail,
@@ -306,11 +321,12 @@ function App() {
     return true;
   });
 
+  // Current tab carries the gold rule — the house accent — on its bottom edge.
   const tabClass = (t: Tab) =>
-    `flex-shrink-0 px-3 sm:px-5 py-2.5 text-xs sm:text-sm font-semibold rounded-t border-b-2 transition-colors whitespace-nowrap ${
+    `flex-shrink-0 inline-flex items-center gap-1.5 px-3 sm:px-5 py-2.5 text-xs sm:text-sm font-semibold rounded-t-sm border-b-4 transition-colors whitespace-nowrap ${
       tab === t
-        ? "border-gray-900 text-gray-900 bg-white"
-        : "border-transparent text-gray-500 hover:text-gray-700 bg-transparent"
+        ? "border-gold-500 text-purple-800 bg-purple-50"
+        : "border-transparent text-ink-500 hover:text-purple-700 bg-transparent"
     }`;
 
   // Check for scan page route (QR code scanner for mobile)
@@ -327,26 +343,21 @@ function App() {
   }
 
   return (
-    <div
-      className="min-h-screen"
-      style={{
-        backgroundColor: "#f8f9fa",
-        fontFamily: "Inter, system-ui, sans-serif",
-      }}
-    >
-      {/* Header */}
-      <header style={{ backgroundColor: "#333333", color: "#ffffff" }}>
+    <div className="min-h-screen bg-ink-50 font-sans text-ink-800">
+      {/* Masthead — purple field, white ink, 4px gold rule on the bottom edge */}
+      <header className="bg-purple-700 text-white sp-rule-gold">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <h1 className="text-base sm:text-xl font-bold tracking-tight leading-tight">
-              🎓 Stonepark Intermediate School
+            <h1 className="text-base sm:text-xl font-bold tracking-tight leading-tight text-white">
+              Stonepark Intermediate School
               <br />
-              <span className="text-sm sm:text-base font-semibold">
-                Chromebook Manager
+              <span className="text-sm sm:text-base font-semibold text-purple-200">
+                Chromebook Borrowing System
               </span>
             </h1>
-            <p className="text-xs text-gray-300 mt-0.5 hidden sm:block">
-              Borrowing &amp; Reservation System
+            <p className="hidden sm:block font-serif italic text-xs text-purple-200 mt-1">
+              Respect and Responsibility ~ Empathy and Kindness ~ Work Ethic
+              and Attitude
             </p>
           </div>
           <div className="flex flex-col items-end gap-2 flex-shrink-0">
@@ -354,7 +365,7 @@ function App() {
               <div className="hidden sm:flex items-center gap-4 text-sm">
                 <div className="flex items-center gap-1.5">
                   <StatusDot status="available" />
-                  <span className="text-gray-200">
+                  <span className="text-purple-100">
                     {
                       stats.resourceStats.filter((r) => r.utilisationPct === 0)
                         .length
@@ -364,7 +375,7 @@ function App() {
                 </div>
                 <div className="flex items-center gap-1.5">
                   <StatusDot status="partial" />
-                  <span className="text-gray-200">
+                  <span className="text-purple-100">
                     {
                       stats.resourceStats.filter(
                         (r) => r.utilisationPct > 0 && r.utilisationPct < 100,
@@ -375,18 +386,17 @@ function App() {
                 </div>
                 <div className="flex items-center gap-1.5">
                   <StatusDot status="full" />
-                  <span className="text-gray-200">
+                  <span className="text-purple-100">
                     {stats.fullyBookedResources} Full
                   </span>
                 </div>
                 {stats.overdueBookings > 0 && (
                   <div className="flex items-center gap-1.5">
                     <span
-                      className="w-3 h-3 rounded-full inline-block"
-                      style={{ backgroundColor: "#dc3545" }}
+                      className="w-3 h-3 rounded-full inline-block bg-status-alert-edge"
                       aria-label="overdue"
                     />
-                    <span className="text-gray-200">
+                    <span className="text-purple-100">
                       {stats.overdueBookings} Overdue
                     </span>
                   </div>
@@ -394,35 +404,36 @@ function App() {
               </div>
             )}
             {/* Auth — authUser is always set here; the login gate runs earlier. */}
-            <div className="flex flex-wrap items-center justify-end gap-1.5 text-xs text-gray-300">
-                <span className="hidden sm:inline">👤 {authUser.name}</span>
+            <div className="flex flex-wrap items-center justify-end gap-1.5 text-xs text-purple-200">
+                <span className="hidden sm:inline">{authUser.name}</span>
                 {authUser.role === "admin" && (
                   <>
                     <button
                       onClick={() => setShowStaff(true)}
-                      className="px-2 py-1 rounded border border-gray-400 text-gray-200 hover:bg-gray-600 text-xs"
+                      className="sp-btn-on-brand"
                     >
-                      👩‍🏫 Staff
+                      <Users size={14} strokeWidth={2} aria-hidden="true" />
+                      Staff
                     </button>
                     <button
                       onClick={() => setShowWhitelist(true)}
-                      className="px-2 py-1 rounded border border-gray-400 text-gray-200 hover:bg-gray-600 text-xs"
+                      className="sp-btn-on-brand"
                     >
+                      <ShieldCheck size={14} strokeWidth={2} aria-hidden="true" />
                       Whitelist
                     </button>
                   </>
                 )}
                 <button
                   onClick={() => setShowPasskeys(true)}
-                  className="px-2 py-1 rounded border border-gray-400 text-gray-200 hover:bg-gray-600 text-xs"
+                  className="sp-btn-on-brand"
                 >
-                  🔑 Passkeys
+                  <KeyRound size={14} strokeWidth={2} aria-hidden="true" />
+                  Passkeys
                 </button>
-                <button
-                  onClick={handleLogout}
-                  className="px-2 py-1 rounded border border-gray-400 text-gray-300 hover:bg-gray-600 text-xs"
-                >
-                  Sign out
+                <button onClick={handleLogout} className="sp-btn-on-brand">
+                  <LogOut size={14} strokeWidth={2} aria-hidden="true" />
+                  Sign Out
                 </button>
             </div>
           </div>
@@ -431,18 +442,15 @@ function App() {
 
       {/* School / Campus Selector */}
       {schools.length > 1 && (
-        <div
-          style={{ backgroundColor: "#444", color: "#eee" }}
-          className="border-b border-gray-600"
-        >
+        <div className="bg-purple-800 text-purple-100 border-b border-white/20">
           <div className="max-w-6xl mx-auto px-4 py-2 flex items-center gap-3">
-            <label className="text-xs font-medium text-gray-300">
-              🏫 Campus:
+            <label className="text-xs font-semibold text-purple-200">
+              Campus:
             </label>
             <select
               value={selectedSchool}
               onChange={(e) => setSelectedSchool(e.target.value)}
-              className="rounded border text-xs px-2 py-1 bg-gray-700 text-gray-100 border-gray-500 focus:outline-none"
+              className="rounded-md border text-xs px-2 py-1 bg-purple-900 text-white border-white/25 focus:outline-none focus:shadow-ring-focus"
             >
               <option value="">All Campuses</option>
               {schools.map((s) => (
@@ -459,18 +467,18 @@ function App() {
           security questions are the only self-service way back into an
           account if the password is forgotten. */}
       {securitySetupPending && !showSecuritySetup && (
-        <div style={{ backgroundColor: "#fff3cd" }}>
+        <div className="bg-status-warning-bg border-b border-status-warning-edge">
           <div className="max-w-6xl mx-auto px-4 py-2 flex flex-wrap items-center justify-between gap-2">
-            <span className="text-xs text-gray-800">
-              ⚠️ You have not set your password-recovery questions. Without
-              them you will need an admin to reset your password.
+            <span className="text-xs text-status-warning-fg inline-flex items-center gap-1.5">
+              <AlertTriangle size={14} strokeWidth={2} aria-hidden="true" />
+              You have not set your password-recovery questions. Without them
+              you will need an admin to reset your password.
             </span>
             <button
               onClick={() => setShowSecuritySetup(true)}
-              className="px-3 py-1 rounded text-xs font-medium flex-shrink-0"
-              style={{ backgroundColor: "#333333", color: "#fff" }}
+              className="sp-btn-primary sp-btn-sm flex-shrink-0"
             >
-              Set them up
+              Set Them Up
             </button>
           </div>
         </div>
@@ -478,33 +486,35 @@ function App() {
 
       {/* Tabs */}
       <div className="max-w-6xl mx-auto px-4">
-        <div
-          className="flex gap-1 mt-4 overflow-x-auto scrollbar-hide"
-          style={{ borderBottom: "1px solid #333333" }}
-        >
+        <div className="flex gap-1 mt-4 overflow-x-auto scrollbar-hide border-b border-ink-200">
           <button
             className={tabClass("dashboard")}
             onClick={() => setTab("dashboard")}
           >
-            📋 Dashboard
+            <LayoutGrid size={16} strokeWidth={2} aria-hidden="true" />
+            Dashboard
           </button>
           <button
             className={tabClass("bookings")}
             onClick={() => setTab("bookings")}
           >
-            📖 Bookings
+            <BookOpen size={16} strokeWidth={2} aria-hidden="true" />
+            Bookings
           </button>
           <button
             className={tabClass("calendar")}
             onClick={() => setTab("calendar")}
           >
-            📅 Calendar
+            <CalendarDays size={16} strokeWidth={2} aria-hidden="true" />
+            Calendar
           </button>
           <button className={tabClass("stats")} onClick={() => setTab("stats")}>
-            📊 Statistics
+            <BarChart3 size={16} strokeWidth={2} aria-hidden="true" />
+            Statistics
           </button>
           <button className={tabClass("qr")} onClick={() => setTab("qr")}>
-            🧾 QR Codes
+            <QrCode size={16} strokeWidth={2} aria-hidden="true" />
+            QR Codes
           </button>
         </div>
       </div>
@@ -513,114 +523,97 @@ function App() {
       <main className="max-w-6xl mx-auto px-4 py-6">
         {/* Success toast */}
         {successMsg && (
-          <div
-            className="mb-4 rounded px-4 py-3 text-sm font-medium"
-            style={{
-              backgroundColor: "#d4edda",
-              color: "#28a745",
-              border: "1px solid #28a745",
-            }}
-          >
-            ✅ {successMsg}
+          <div className="mb-4 sp-banner-success flex items-center gap-2">
+            <CheckCircle2 size={16} strokeWidth={2} aria-hidden="true" />
+            {successMsg}
           </div>
         )}
 
         {/* Error banner */}
         {error && (
-          <div
-            className="mb-4 rounded px-4 py-3 text-sm font-medium"
-            style={{
-              backgroundColor: "#f8d7da",
-              color: "#dc3545",
-              border: "1px solid #dc3545",
-            }}
-          >
-            ⚠️ {error}
+          <div className="mb-4 sp-banner-alert flex items-center gap-2">
+            <AlertTriangle size={16} strokeWidth={2} aria-hidden="true" />
+            {error}
           </div>
         )}
 
         {loading ? (
-          <div className="text-center py-20 text-gray-500">
+          <div className="text-center py-20 text-ink-500">
             Loading resources…
           </div>
         ) : tab === "dashboard" ? (
           <>
             {/* Search */}
-            <div className="mb-4">
+            <div className="mb-4 relative">
+              <Search
+                size={16}
+                strokeWidth={2}
+                aria-hidden="true"
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-400 pointer-events-none"
+              />
               <input
                 type="text"
-                placeholder="🔍 Search resources by name, room, or description…"
+                placeholder="Search resources by name, room, or description…"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full rounded border px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
-                style={{ borderColor: "#333333", backgroundColor: "#ffffff" }}
+                className="sp-input pl-9 py-2.5"
               />
             </div>
 
             {/* Filters */}
             <div className="flex flex-col gap-2 mb-5">
               <div className="flex flex-wrap items-center gap-2">
-                <label className="text-sm font-medium text-gray-700">
+                <label className="text-sm font-semibold text-ink-700">
                   Type:
                 </label>
                 {(["all", "cabinet", "single"] as const).map((f) => (
                   <button
                     key={f}
                     onClick={() => setFilter(f)}
-                    className="px-3 py-1.5 rounded border text-xs font-medium transition-colors capitalize"
-                    style={{
-                      borderColor: "#333333",
-                      backgroundColor: filter === f ? "#333333" : "transparent",
-                      color: filter === f ? "#ffffff" : "#333333",
-                    }}
+                    className={`px-3 py-1.5 rounded-md border text-xs font-semibold transition-colors ${
+                      filter === f
+                        ? "border-purple-700 bg-purple-700 text-white"
+                        : "border-ink-300 bg-white text-ink-700 hover:bg-purple-50 hover:border-purple-700"
+                    }`}
                   >
-                    {f === "all"
-                      ? "All"
-                      : f === "cabinet"
-                        ? "⚡ Cabinet"
-                        : "💻 Single"}
+                    {f === "all" ? "All" : f === "cabinet" ? "Cabinet" : "Single"}
                   </button>
                 ))}
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <label className="text-sm font-medium text-gray-700">
+                <label className="text-sm font-semibold text-ink-700">
                   Status:
                 </label>
                 {(["all", "available", "partial", "full"] as const).map((s) => (
                   <button
                     key={s}
                     onClick={() => setStatusFilter(s)}
-                    className="px-3 py-1.5 rounded border text-xs font-medium transition-colors capitalize"
-                    style={{
-                      borderColor: "#333333",
-                      backgroundColor:
-                        statusFilter === s ? "#333333" : "transparent",
-                      color: statusFilter === s ? "#ffffff" : "#333333",
-                    }}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-xs font-semibold transition-colors ${
+                      statusFilter === s
+                        ? "border-purple-700 bg-purple-700 text-white"
+                        : "border-ink-300 bg-white text-ink-700 hover:bg-purple-50 hover:border-purple-700"
+                    }`}
                   >
+                    {s !== "all" && <StatusDot status={s} />}
                     {s === "all"
                       ? "All"
                       : s === "available"
-                        ? "🟢 Available"
+                        ? "Available"
                         : s === "partial"
-                          ? "🟡 Partial"
-                          : "🔴 Full"}
+                          ? "Partial"
+                          : "Full"}
                   </button>
                 ))}
               </div>
               <div className="flex items-center justify-between">
                 <button
                   onClick={() => setShowAddResource(true)}
-                  className="px-3 py-1.5 rounded border text-xs font-medium transition-colors"
-                  style={{
-                    borderColor: "#333333",
-                    backgroundColor: "#333333",
-                    color: "#ffffff",
-                  }}
+                  className="sp-btn-primary sp-btn-sm"
                 >
-                  + Add Resource
+                  <Plus size={14} strokeWidth={2} aria-hidden="true" />
+                  Add Resource
                 </button>
-                <span className="text-xs text-gray-500">
+                <span className="text-xs text-ink-500">
                   {filteredResources.length} resource
                   {filteredResources.length !== 1 ? "s" : ""}
                 </span>
@@ -629,7 +622,7 @@ function App() {
 
             {/* Resource Grid */}
             {filteredResources.length === 0 ? (
-              <p className="text-center text-gray-500 py-10">
+              <p className="text-center text-ink-500 py-10">
                 No resources match the current filter.
               </p>
             ) : (
@@ -649,17 +642,17 @@ function App() {
             )}
 
             {/* Legend */}
-            <div className="mt-6 flex flex-wrap gap-4 justify-center text-xs text-gray-600">
+            <div className="mt-6 flex flex-wrap gap-4 justify-center text-xs text-ink-600">
               {[
                 {
-                  color: "#28a745",
-                  label: "Available (Green) — Free to borrow",
+                  color: "#1E7A4C",
+                  label: "Available — Free to borrow",
                 },
                 {
-                  color: "#ffc107",
-                  label: "Partial (Yellow) — Partially occupied",
+                  color: "#E08A00",
+                  label: "Partial — Partially occupied",
                 },
-                { color: "#dc3545", label: "Full (Red) — Fully booked" },
+                { color: "#C0271F", label: "Full — Fully booked" },
               ].map((item) => (
                 <span key={item.label} className="flex items-center gap-1.5">
                   <span
@@ -686,8 +679,12 @@ function App() {
       </main>
 
       {/* Footer */}
-      <footer className="text-center text-xs text-gray-400 py-6 mt-8">
-        Stonepark Intermediate School — Chromebook Borrowing System
+      <footer className="border-t border-ink-200 text-center text-xs text-ink-500 py-6 mt-8">
+        <p className="font-serif italic text-ink-600 mb-1">
+          Respect and Responsibility ~ Empathy and Kindness ~ Work Ethic and
+          Attitude
+        </p>
+        <p>Stonepark Intermediate School — Chromebook Borrowing System</p>
       </footer>
 
       {/* Booking Modal */}
@@ -750,27 +747,19 @@ function App() {
         <Modal title="Manage Whitelist" onClose={() => setShowWhitelist(false)}>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Add email
-              </label>
+              <label className="sp-label">Add Email</label>
               <div className="flex gap-2">
                 <input
                   type="email"
                   value={whitelistEmail}
                   onChange={(e) => setWhitelistEmail(e.target.value)}
                   placeholder="name@cloud.edu.pe.ca"
-                  className="flex-1 border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
-                  style={{ borderColor: "#ccc" }}
+                  className="sp-input flex-1"
                 />
                 <button
                   onClick={handleAddWhitelist}
                   disabled={whitelistLoading}
-                  className="px-3 py-2 rounded text-sm font-medium"
-                  style={{
-                    backgroundColor: "#333333",
-                    color: "#fff",
-                    opacity: whitelistLoading ? 0.7 : 1,
-                  }}
+                  className="sp-btn-primary"
                 >
                   Add
                 </button>
@@ -778,29 +767,21 @@ function App() {
             </div>
 
             {whitelistError && (
-              <div
-                className="px-3 py-2 rounded text-sm"
-                style={{ backgroundColor: "#f8d7da", color: "#dc3545" }}
-              >
-                {whitelistError}
-              </div>
+              <div className="sp-banner-alert">{whitelistError}</div>
             )}
 
             <div>
-              <div className="text-sm font-semibold text-gray-700 mb-2">
+              <div className="text-sm font-bold text-purple-800 mb-2">
                 Whitelist
               </div>
               {whitelistLoading ? (
-                <div className="text-sm text-gray-500">Loading...</div>
+                <div className="text-sm text-ink-500">Loading…</div>
               ) : whitelistEntries.length === 0 ? (
-                <div className="text-sm text-gray-500">
+                <div className="text-sm text-ink-500">
                   No whitelist entries.
                 </div>
               ) : (
-                <div
-                  className="divide-y border rounded"
-                  style={{ borderColor: "#e5e7eb" }}
-                >
+                <div className="divide-y divide-ink-100 border border-ink-200 rounded-md">
                   {whitelistPageEntries.map((entry) => {
                     const isSelf =
                       authUser.email.toLowerCase() ===
@@ -811,21 +792,15 @@ function App() {
                         className="flex items-center justify-between px-3 py-2"
                       >
                         <div>
-                          <div className="text-sm text-gray-900 flex items-center gap-2">
+                          <div className="text-sm text-ink-800 flex items-center gap-2">
                             <span>{entry.email}</span>
                             {entry.is_admin && (
-                              <span
-                                className="text-[10px] px-1.5 py-0.5 rounded border"
-                                style={{
-                                  borderColor: "#333333",
-                                  color: "#333333",
-                                }}
-                              >
+                              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-sm border border-purple-700 text-purple-700">
                                 Admin
                               </span>
                             )}
                           </div>
-                          <div className="text-xs text-gray-400">
+                          <div className="text-xs text-ink-400">
                             {entry.created_by
                               ? `Added by ${entry.created_by}`
                               : "Seeded"}
@@ -834,17 +809,12 @@ function App() {
                         <button
                           onClick={() => handleRemoveWhitelist(entry)}
                           disabled={isSelf || whitelistLoading}
-                          className="px-2 py-1 rounded border text-xs"
-                          style={{
-                            borderColor: "#333333",
-                            color: isSelf ? "#999999" : "#333333",
-                            opacity: whitelistLoading ? 0.6 : 1,
-                          }}
+                          className="sp-btn-secondary sp-btn-sm"
                           title={
                             isSelf ? "You cannot remove yourself." : "Remove"
                           }
                         >
-                          {entry.is_admin ? "Request removal" : "Remove"}
+                          {entry.is_admin ? "Request Removal" : "Remove"}
                         </button>
                       </div>
                     );
@@ -852,15 +822,11 @@ function App() {
                 </div>
               )}
               {whitelistEntries.length > 0 && (
-                <div className="flex items-center justify-between mt-3 text-xs text-gray-600">
+                <div className="flex items-center justify-between mt-3 text-xs text-ink-600">
                   <button
                     onClick={() => setWhitelistPage((p) => Math.max(1, p - 1))}
                     disabled={whitelistPage <= 1}
-                    className="px-2 py-1 rounded border"
-                    style={{
-                      borderColor: "#333333",
-                      opacity: whitelistPage <= 1 ? 0.5 : 1,
-                    }}
+                    className="sp-btn-secondary sp-btn-sm"
                   >
                     Prev
                   </button>
@@ -874,11 +840,7 @@ function App() {
                       )
                     }
                     disabled={whitelistPage >= whitelistTotalPages}
-                    className="px-2 py-1 rounded border"
-                    style={{
-                      borderColor: "#333333",
-                      opacity: whitelistPage >= whitelistTotalPages ? 0.5 : 1,
-                    }}
+                    className="sp-btn-secondary sp-btn-sm"
                   >
                     Next
                   </button>
@@ -887,18 +849,15 @@ function App() {
             </div>
 
             <div>
-              <div className="text-sm font-semibold text-gray-700 mb-2">
-                Pending admin removals
+              <div className="text-sm font-bold text-purple-800 mb-2">
+                Pending Admin Removals
               </div>
               {removalRequests.length === 0 ? (
-                <div className="text-sm text-gray-500">
+                <div className="text-sm text-ink-500">
                   No pending admin removals.
                 </div>
               ) : (
-                <div
-                  className="divide-y border rounded"
-                  style={{ borderColor: "#e5e7eb" }}
-                >
+                <div className="divide-y divide-ink-100 border border-ink-200 rounded-md">
                   {removalRequests.map((request) => {
                     const canVote = !request.has_voted && request.required > 0;
                     return (
@@ -907,32 +866,27 @@ function App() {
                         className="flex items-center justify-between px-3 py-2"
                       >
                         <div>
-                          <div className="text-sm text-gray-900">
+                          <div className="text-sm text-ink-800">
                             {request.email}
                           </div>
-                          <div className="text-xs text-gray-400">
+                          <div className="text-xs text-ink-400">
                             Requested by {request.created_by}
                           </div>
-                          <div className="text-xs text-gray-500">
+                          <div className="text-xs text-ink-500">
                             Votes: {request.votes}/{request.required}
                           </div>
                         </div>
                         <button
                           onClick={() => handleVoteRemoval(request.email)}
                           disabled={!canVote || whitelistLoading}
-                          className="px-2 py-1 rounded border text-xs"
-                          style={{
-                            borderColor: "#333333",
-                            color: canVote ? "#333333" : "#999999",
-                            opacity: whitelistLoading ? 0.6 : 1,
-                          }}
+                          className="sp-btn-secondary sp-btn-sm"
                           title={
                             canVote
                               ? "Vote to approve removal"
                               : "Already voted or not eligible"
                           }
                         >
-                          {request.has_voted ? "Voted" : "Vote approve"}
+                          {request.has_voted ? "Voted" : "Vote Approve"}
                         </button>
                       </div>
                     );

@@ -1,5 +1,16 @@
 import React, { useRef, useState } from "react";
 import { QRCodeCanvas } from "qrcode.react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Laptop,
+  MapPin,
+  Pencil,
+  QrCode,
+  Server,
+  Trash2,
+  X,
+} from "lucide-react";
 import { Resource } from "../types";
 import { StatusBadge } from "./StatusBadge";
 import { updateResource } from "../api";
@@ -64,12 +75,12 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
       ? Math.round((resource.currentBooked / resource.totalQuantity) * 100)
       : 0;
 
-  const barColor =
+  const barFillClass =
     resource.status === "available"
-      ? "#28a745"
+      ? "bg-status-success-edge"
       : resource.status === "partial"
-        ? "#ffc107"
-        : "#dc3545";
+        ? "bg-status-warning-edge"
+        : "bg-status-alert-edge";
 
   const refreshAfterSave = () => {
     if (onResourceUpdated) onResourceUpdated();
@@ -184,10 +195,7 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
   };
 
   return (
-    <div
-      className="bg-white rounded-lg border p-4 flex flex-col gap-3 shadow-sm hover:shadow-md transition-shadow"
-      style={{ borderColor: "#333333" }}
-    >
+    <div className="sp-card-gold p-4 flex flex-col gap-3 hover:shadow-md hover:-translate-y-0.5 transition">
       {/* Header */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
@@ -198,8 +206,7 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
                 onKeyDown={handleNameKeyDown}
-                className="w-full border rounded px-2 py-1 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-gray-400"
-                style={{ borderColor: "#ccc" }}
+                className="sp-input font-semibold"
                 autoFocus
                 disabled={saving}
               />
@@ -207,20 +214,14 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
                 <button
                   onClick={handleSaveName}
                   disabled={saving}
-                  className="px-2 py-0.5 rounded text-xs font-medium"
-                  style={{
-                    backgroundColor: "#333",
-                    color: "#fff",
-                    opacity: saving ? 0.7 : 1,
-                  }}
+                  className="sp-btn-primary sp-btn-sm"
                 >
                   {saving ? "Saving…" : "Save"}
                 </button>
                 <button
                   onClick={handleCancelName}
                   disabled={saving}
-                  className="px-2 py-0.5 rounded border text-xs"
-                  style={{ borderColor: "#ccc", color: "#555" }}
+                  className="sp-btn-secondary sp-btn-sm"
                 >
                   Cancel
                 </button>
@@ -229,7 +230,7 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
           ) : (
             <div className="group">
               <div className="flex items-center gap-1">
-                <h3 className="font-semibold text-base text-gray-900">
+                <h3 className="font-bold text-base text-purple-800">
                   {resource.name}
                 </h3>
                 <button
@@ -238,10 +239,11 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
                     setEditingName(true);
                     setEditError(null);
                   }}
-                  className="edit-affordance text-gray-400 hover:text-gray-600 text-sm px-1"
+                  className="edit-affordance text-ink-400 hover:text-purple-700 px-1"
                   title="Edit name"
                 >
-                  ✏️
+                  <Pencil size={14} strokeWidth={2} aria-hidden="true" />
+                  <span className="sr-only">Edit name</span>
                 </button>
               </div>
 
@@ -253,8 +255,7 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
                       value={editRoom}
                       onChange={(e) => setEditRoom(e.target.value)}
                       onKeyDown={handleRoomKeyDown}
-                      className="w-full border rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-gray-400"
-                      style={{ borderColor: "#ccc" }}
+                      className="sp-input text-xs"
                       autoFocus
                       disabled={saving}
                       placeholder="Enter address"
@@ -263,20 +264,14 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
                       <button
                         onClick={handleSaveRoom}
                         disabled={saving}
-                        className="px-2 py-0.5 rounded text-xs font-medium"
-                        style={{
-                          backgroundColor: "#333",
-                          color: "#fff",
-                          opacity: saving ? 0.7 : 1,
-                        }}
+                        className="sp-btn-primary sp-btn-sm"
                       >
                         {saving ? "Saving…" : "Save"}
                       </button>
                       <button
                         onClick={handleCancelRoom}
                         disabled={saving}
-                        className="px-2 py-0.5 rounded border text-xs"
-                        style={{ borderColor: "#ccc", color: "#555" }}
+                        className="sp-btn-secondary sp-btn-sm"
                       >
                         Cancel
                       </button>
@@ -284,7 +279,13 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
                   </div>
                 ) : (
                   <>
-                    <p className="text-xs text-gray-500 mt-0.5">
+                    <p className="text-xs font-mono text-ink-500 mt-0.5 inline-flex items-center gap-1">
+                      <MapPin
+                        size={14}
+                        strokeWidth={2}
+                        aria-hidden="true"
+                        className="text-ink-400 shrink-0"
+                      />
                       {resource.classRoom}
                     </p>
                     <button
@@ -293,18 +294,20 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
                         setEditingRoom(true);
                         setEditError(null);
                       }}
-                      className="edit-affordance text-gray-400 hover:text-gray-600 text-sm px-1"
+                      className="edit-affordance text-ink-400 hover:text-purple-700 px-1"
                       title="Edit address"
                     >
-                      ✏️
+                      <Pencil size={14} strokeWidth={2} aria-hidden="true" />
+                      <span className="sr-only">Edit address</span>
                     </button>
                   </>
                 )}
               </div>
 
               {resource.lastModifiedBy && (
-                <p className="text-[10px] text-gray-400 mt-0.5">
-                  ✏️ Last edited by {resource.lastModifiedBy}
+                <p className="text-[10px] text-ink-400 mt-0.5 inline-flex items-center gap-1">
+                  <Pencil size={14} strokeWidth={2} aria-hidden="true" />
+                  Last edited by {resource.lastModifiedBy}
                 </p>
               )}
             </div>
@@ -314,10 +317,15 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
         <StatusBadge status={resource.status} />
       </div>
 
-      {/* Type pill */}
+      {/* Type chip */}
       <div className="flex items-center gap-2">
-        <span className="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-700 font-medium capitalize">
-          {resource.type === "cabinet" ? "⚡ Cabinet" : "💻 Single"}
+        <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-sm bg-purple-100 text-purple-800 font-medium">
+          {resource.type === "cabinet" ? (
+            <Server size={14} strokeWidth={2} aria-hidden="true" />
+          ) : (
+            <Laptop size={14} strokeWidth={2} aria-hidden="true" />
+          )}
+          {resource.type === "cabinet" ? "Cabinet" : "Single"}
         </span>
       </div>
 
@@ -330,8 +338,7 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
               onChange={(e) => setEditDescription(e.target.value)}
               onKeyDown={handleDescriptionKeyDown}
               rows={2}
-              className="w-full border rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-gray-400"
-              style={{ borderColor: "#ccc" }}
+              className="sp-input text-xs"
               autoFocus
               disabled={saving}
               placeholder="Add description"
@@ -340,20 +347,14 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
               <button
                 onClick={handleSaveDescription}
                 disabled={saving}
-                className="px-2 py-0.5 rounded text-xs font-medium"
-                style={{
-                  backgroundColor: "#333",
-                  color: "#fff",
-                  opacity: saving ? 0.7 : 1,
-                }}
+                className="sp-btn-primary sp-btn-sm"
               >
                 {saving ? "Saving…" : "Save"}
               </button>
               <button
                 onClick={handleCancelDescription}
                 disabled={saving}
-                className="px-2 py-0.5 rounded border text-xs"
-                style={{ borderColor: "#ccc", color: "#555" }}
+                className="sp-btn-secondary sp-btn-sm"
               >
                 Cancel
               </button>
@@ -362,7 +363,7 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
         ) : (
           <div className="group">
             <div className="flex items-center gap-1">
-              <span className="text-xs text-gray-500">
+              <span className="text-xs text-ink-500">
                 {resource.description || "No description"}
               </span>
               <button
@@ -371,10 +372,11 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
                   setEditingDescription(true);
                   setEditError(null);
                 }}
-                className="edit-affordance text-gray-400 hover:text-gray-600 text-sm px-1"
+                className="edit-affordance text-ink-400 hover:text-purple-700 px-1"
                 title="Edit description"
               >
-                ✏️
+                <Pencil size={14} strokeWidth={2} aria-hidden="true" />
+                <span className="sr-only">Edit description</span>
               </button>
             </div>
           </div>
@@ -382,42 +384,61 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
       </div>
 
       {editError && !editingName && !editingRoom && !editingDescription && (
-        <div className="text-xs text-red-500">{editError}</div>
+        <div className="text-xs text-status-alert-fg">{editError}</div>
       )}
 
       {/* Overdue indicator */}
       {resource.overdueBookings > 0 && (
-        <div
-          className="text-xs font-medium px-2 py-0.5 rounded"
-          style={{ backgroundColor: "#f8d7da", color: "#dc3545" }}
-        >
-          ⏰ {resource.overdueBookings} overdue
+        <div className="sp-pill-alert inline-flex items-center gap-1 self-start">
+          <AlertTriangle size={14} strokeWidth={2} aria-hidden="true" />
+          <span className="font-mono">{resource.overdueBookings}</span> overdue
         </div>
       )}
 
       {/* Utilisation bar */}
       {resource.type === "cabinet" && (
         <div>
-          <div className="flex justify-between text-xs text-gray-600 mb-1">
+          <div className="flex justify-between text-xs text-ink-500 mb-1">
             <span>
-              {resource.currentBooked}/{resource.totalQuantity} in use
+              <span className="font-mono">
+                {resource.currentBooked}/{resource.totalQuantity}
+              </span>{" "}
+              in use
             </span>
-            <span>{utilisationPct}%</span>
+            <span className="font-mono">{utilisationPct}%</span>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
+          <div className="w-full bg-ink-100 rounded-full h-2">
             <div
-              className="h-2 rounded-full transition-all"
-              style={{ width: `${utilisationPct}%`, backgroundColor: barColor }}
+              className={`h-2 rounded-full transition-all ${barFillClass}`}
+              style={{ width: `${utilisationPct}%` }}
             />
           </div>
         </div>
       )}
 
       {resource.type === "single" && (
-        <p className="text-sm text-gray-700">
-          {resource.status === "available"
-            ? "✅ Free to borrow"
-            : "🚫 Currently borrowed"}
+        <p className="text-sm text-ink-800 inline-flex items-center gap-1.5">
+          {resource.status === "available" ? (
+            <>
+              <CheckCircle2
+                size={16}
+                strokeWidth={2}
+                aria-hidden="true"
+                className="text-status-success-edge shrink-0"
+              />
+              Free to borrow
+            </>
+          ) : (
+            <>
+              <X
+                size={16}
+                strokeWidth={2}
+                aria-hidden="true"
+                className="text-status-alert-edge shrink-0"
+              />
+              Currently borrowed
+            </>
+          )}
         </p>
       )}
 
@@ -427,7 +448,7 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
           value={buildReturnUrl()}
           size={180}
           bgColor="#ffffff"
-          fgColor="#333333"
+          fgColor="#140A38"
           level="H"
           includeMargin
           ref={(el) => {
@@ -442,40 +463,34 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
         <button
           onClick={() => onBook(resource)}
           disabled={!isAvailable}
-          className="flex-1 py-1.5 text-sm font-medium rounded border transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          style={{
-            borderColor: "#333333",
-            backgroundColor: isAvailable ? "#333333" : "transparent",
-            color: isAvailable ? "#ffffff" : "#333333",
-          }}
+          className="sp-btn-primary flex-1"
         >
           Book
         </button>
         <button
           onClick={() => onViewBookings(resource)}
-          className="flex-1 py-1.5 text-sm font-medium rounded border transition-colors hover:bg-gray-100"
-          style={{ borderColor: "#333333", color: "#333333" }}
+          className="sp-btn-secondary flex-1"
         >
           History
         </button>
         {resource.type === "cabinet" && (
           <button
             onClick={handleDownloadQr}
-            className="py-1.5 px-2 text-sm font-medium rounded border transition-colors hover:bg-gray-100"
-            style={{ borderColor: "#333333", color: "#333333" }}
+            className="sp-btn-secondary"
             title="Download QR code for this cabinet"
           >
-            🧾
+            <QrCode size={20} strokeWidth={2} aria-hidden="true" />
+            <span className="sr-only">Download QR Code</span>
           </button>
         )}
         {isAdmin && onDelete && (
           <button
             onClick={() => setConfirmDelete(true)}
-            className="py-1.5 px-2 text-sm font-medium rounded border transition-colors hover:bg-red-50"
-            style={{ borderColor: "#dc3545", color: "#dc3545" }}
+            className="sp-btn-danger"
             title="Delete resource"
           >
-            🗑
+            <Trash2 size={20} strokeWidth={2} aria-hidden="true" />
+            <span className="sr-only">Delete Resource</span>
           </button>
         )}
       </div>
@@ -483,18 +498,17 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
       {/* Delete confirmation */}
       {confirmDelete && (
         <div
-          className="fixed inset-0 flex items-center justify-center z-50"
-          style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
+          className="fixed inset-0 flex items-center justify-center z-50 bg-ink-900/60"
           onClick={() => setConfirmDelete(false)}
         >
           <div
-            className="bg-white rounded-lg shadow-xl p-6 max-w-sm w-full mx-4"
+            className="sp-card shadow-lg p-6 max-w-sm w-full mx-4"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="text-base font-semibold text-gray-800 mb-2">
+            <div className="text-base font-bold text-purple-800 mb-2">
               Delete resource?
             </div>
-            <p className="text-sm text-gray-600 mb-4">
+            <p className="text-sm text-ink-800 mb-4">
               Permanently delete <strong>{resource.name}</strong>? This cannot
               be undone. Resources with active bookings cannot be deleted.
             </p>
@@ -504,15 +518,13 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
                   setConfirmDelete(false);
                   onDelete?.(resource);
                 }}
-                className="flex-1 py-2 rounded font-medium text-sm"
-                style={{ backgroundColor: "#dc3545", color: "#fff" }}
+                className="sp-btn-danger flex-1"
               >
-                Yes, delete
+                Yes, Delete
               </button>
               <button
                 onClick={() => setConfirmDelete(false)}
-                className="flex-1 py-2 rounded border text-sm"
-                style={{ borderColor: "#ccc", color: "#555" }}
+                className="sp-btn-secondary flex-1"
               >
                 Cancel
               </button>
