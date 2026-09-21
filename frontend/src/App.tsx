@@ -352,7 +352,7 @@ function App() {
               Stonepark Intermediate School
               <br />
               <span className="text-sm sm:text-base font-semibold text-purple-200">
-                Chromebook Borrowing System
+                Chromebook Manager
               </span>
             </h1>
             <p className="hidden sm:block font-serif italic text-xs text-purple-200 mt-1">
@@ -684,7 +684,7 @@ function App() {
           Respect and Responsibility ~ Empathy and Kindness ~ Work Ethic and
           Attitude
         </p>
-        <p>Stonepark Intermediate School — Chromebook Borrowing System</p>
+        <p>Stonepark Intermediate School — Chromebook Manager</p>
       </footer>
 
       {/* Booking Modal */}

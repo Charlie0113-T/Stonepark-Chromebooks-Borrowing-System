@@ -37,7 +37,7 @@ const Masthead: React.FC = () => (
         Stonepark Intermediate School
       </div>
       <div className="text-purple-200 text-xs mt-0.5">
-        Chromebook Borrowing System
+        Chromebook Manager
       </div>
     </div>
   </header>

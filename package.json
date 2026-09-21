@@ -1,7 +1,7 @@
 {
   "name": "stonepark-chromebook-manager",
   "version": "1.0.0",
-  "description": "Stonepark Intermediate School Chromebook Borrowing Management System",
+  "description": "Stonepark Chromebook Manager — Chromebook borrowing and reservation system for Stonepark Intermediate School",
   "private": true,
   "engines": {
     "node": "20.x"

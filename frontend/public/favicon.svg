@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Source of truth for every app icon. After editing, regenerate the
+       rasters with: swift frontend/scripts/build-icons.swift
+       Colours are sp-purple-700 and sp-gold-500 from stonepark-tokens.css. -->
+  <rect id="bg" width="64" height="64" rx="14" fill="#2A166F"/>
+  <g id="glyph" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="13" y="14" width="38" height="27" rx="4" stroke="#FFFFFF" stroke-width="4"/>
+    <path d="M23 28l6.5 6.5L41.5 21.5" stroke="#FCF204" stroke-width="5"/>
+    <path d="M8.5 49h47" stroke="#FCF204" stroke-width="6"/>
+  </g>
+</svg>

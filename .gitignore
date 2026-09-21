@@ -40,10 +40,11 @@ Desktop.ini
 # Test coverage
 coverage/
 
+# Local-only docs and working files (kept out of the public repo)
 HANDOVER.md
 TECHNICAL-REFERENCE.md
-
-Staff.pdf
-
-Stonepark Tigers Design System
 CHANGES.md
+Staff.pdf
+项目监工.md
+CLAUDE.local.md
+Stonepark Tigers Design System

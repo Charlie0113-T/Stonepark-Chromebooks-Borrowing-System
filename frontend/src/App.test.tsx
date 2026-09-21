@@ -4,6 +4,6 @@ import App from './App';
 
 test('renders app header', async () => {
   render(<App />);
-  const heading = await screen.findByText(/Stonepark Chromebook Manager/i);
+  const heading = await screen.findByText(/Chromebook Manager/i);
   expect(heading).toBeInTheDocument();
 });

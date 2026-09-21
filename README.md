@@ -1,4 +1,4 @@
-# 🎓 Stonepark Chromebook Borrowing System
+# 🎓 Stonepark Chromebook Manager
 
 A full-stack web application for Stonepark Intermediate School to manage the borrowing and reservation of Chromebooks, including charging cabinets and individual devices.
 
@@ -179,7 +179,7 @@ SMTP_PORT=587
 SMTP_USER=your-email@gmail.com
 SMTP_PASS=your-app-password
 NOTIFY_FROM=Chromebook Manager <your-email@gmail.com>
-NOTIFY_TO=admin@stonepark.school.nz
+NOTIFY_TO=admin@cloud.edu.pe.ca
 
 # ── Google Chat Webhook ───────────────────────────────────────────────────────
 GOOGLE_CHAT_WEBHOOK_URL=https://chat.googleapis.com/v1/spaces/.../messages?key=...

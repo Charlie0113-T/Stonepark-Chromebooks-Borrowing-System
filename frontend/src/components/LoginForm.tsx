@@ -284,7 +284,7 @@ export default function LoginForm({ onLogin }: Props) {
               Stonepark Intermediate School
             </h1>
             <p className="text-sm text-purple-200 mt-1">
-              Chromebook Borrowing System
+              Chromebook Manager
             </p>
             <p className="font-serif italic text-purple-200 text-xs mt-2">
               Respect and Responsibility ~ Empathy and Kindness ~ Work Ethic

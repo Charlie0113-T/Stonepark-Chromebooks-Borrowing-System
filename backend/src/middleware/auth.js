@@ -28,7 +28,7 @@ const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-in-production";
 
 const DEFAULT_DEV_USER = {
   id: "dev-user",
-  email: "admin@stonepark.school.nz",
+  email: "admin@cloud.edu.pe.ca",
   name: "Dev Admin",
   role: "admin",
   schoolId: "school-default",

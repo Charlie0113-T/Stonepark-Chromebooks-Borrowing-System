@@ -5,7 +5,7 @@
  * Registered from src/serviceWorkerRegistration.ts.
  */
 
-const VERSION = "v4";
+const VERSION = "v5";
 const STATIC_CACHE = `stonepark-cb-static-${VERSION}`;
 
 const STATIC_ASSETS = [
@@ -13,6 +13,7 @@ const STATIC_ASSETS = [
   "/index.html",
   "/manifest.json",
   "/favicon.ico",
+  "/favicon.svg",
   "/logo192.png",
   "/logo512.png",
 ];

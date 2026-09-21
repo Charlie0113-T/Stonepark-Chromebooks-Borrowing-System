@@ -1,8 +1,8 @@
-# Chromebook Booking — A Quick Guide for Staff
+# Stonepark Chromebook Manager — A Quick Guide for Staff
 
 **[stonepark-chromebook-manager.vercel.app](https://stonepark-chromebook-manager.vercel.app)**
 
-Everything below fits on one page. You will probably only need the first two sections.
+Everything below fits on three pages. You will probably only need the first two sections.
 
 ---
 

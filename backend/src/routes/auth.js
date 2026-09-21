@@ -914,7 +914,7 @@ module.exports = function createAuthRouter() {
           await sendEmail({
             to: target,
             subject: "Whitelist approved",
-            text: "Your account has been approved for the Stonepark Chromebook system. You can now sign up or sign in.",
+            text: "Your account has been approved for Stonepark Chromebook Manager. You can now sign up or sign in.",
           });
         }
       } catch (err) {
