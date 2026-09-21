@@ -2,7 +2,7 @@
 
 **[stonepark-chromebook-manager.vercel.app](https://stonepark-chromebook-manager.vercel.app)**
 
-Everything below fits on three pages. You will probably only need the first two sections.
+You will probably only need the first two sections.
 
 ---
 
