@@ -70,6 +70,15 @@ function readStoredFailover(): number {
 
 let failoverUntil = readStoredFailover();
 
+// Reloading or leaving the page aborts in-flight requests. That says nothing
+// about the primary's health, so it must not flip the app onto the backup.
+let leavingPage = false;
+if (typeof window !== "undefined") {
+  window.addEventListener("pagehide", () => {
+    leavingPage = true;
+  });
+}
+
 function failoverActive(): boolean {
   return !!FALLBACK_API_URL && failoverUntil > Date.now();
 }
@@ -97,7 +106,9 @@ function isReplayable(config: InternalAxiosRequestConfig): boolean {
 
 function shouldSwitchHost(error: AxiosError): boolean {
   const config = error.config;
-  if (!FALLBACK_API_URL || !config || config._failedOver) return false;
+  if (!FALLBACK_API_URL || !config || config._failedOver || leavingPage) {
+    return false;
+  }
   const status = error.response?.status;
   // A status we can read came from the backend itself (it sets CORS headers).
   // Its own 429s are login rate limits and must not be dodged by switching hosts.
