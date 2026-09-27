@@ -1,4 +1,4 @@
-import axios from "axios";
+import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import {
   Booking,
   CreateBookingPayload,
@@ -32,13 +32,103 @@ function resolveApiBaseUrl() {
 
 export const API_BASE_URL = resolveApiBaseUrl();
 
+// ── Backup API failover ───────────────────────────────────────────────────────
+// REACT_APP_API_FALLBACK_URL points at a second copy of the backend that shares
+// the primary's DATABASE_URL and JWT_SECRET, so either host can serve any
+// request and a token issued by one is accepted by the other. When the primary
+// (Render free tier) is asleep, blocked at its edge, or down, requests that are
+// safe to repeat are retried on the backup, and the app keeps using the backup
+// for a while. Leave the variable unset to disable failover entirely.
+const FALLBACK_API_URL =
+  process.env.REACT_APP_API_FALLBACK_URL?.trim() || null;
+const FAILOVER_STORAGE_KEY = "api_failover_until";
+const FAILOVER_DURATION_MS = 10 * 60 * 1000;
+// Render's free tier takes 20–60 s to wake up; teachers should not wait on it.
+const PRIMARY_TIMEOUT_MS = 12_000;
+const READ_METHODS = new Set(["get", "head", "options"]);
+// Writes that are harmless to send twice: logging in again just issues a new
+// token, and a fresh passkey challenge simply replaces the unused one. The
+// login page requests passkey options on load, so it must fail over too.
+const REPLAYABLE_WRITE_PATHS = new Set([
+  "/api/auth/login",
+  "/api/auth/passkeys/login/options",
+]);
+
+declare module "axios" {
+  interface InternalAxiosRequestConfig {
+    _failedOver?: boolean;
+  }
+}
+
+function readStoredFailover(): number {
+  try {
+    return Number(localStorage.getItem(FAILOVER_STORAGE_KEY)) || 0;
+  } catch {
+    return 0;
+  }
+}
+
+let failoverUntil = readStoredFailover();
+
+function failoverActive(): boolean {
+  return !!FALLBACK_API_URL && failoverUntil > Date.now();
+}
+
+function setFailover(active: boolean) {
+  failoverUntil = active ? Date.now() + FAILOVER_DURATION_MS : 0;
+  try {
+    if (active) {
+      localStorage.setItem(FAILOVER_STORAGE_KEY, String(failoverUntil));
+    } else {
+      localStorage.removeItem(FAILOVER_STORAGE_KEY);
+    }
+  } catch {
+    // Storage unavailable: failover still works for this page load.
+  }
+}
+
+function isReplayable(config: InternalAxiosRequestConfig): boolean {
+  const method = (config.method || "get").toLowerCase();
+  return (
+    READ_METHODS.has(method) ||
+    (method === "post" && REPLAYABLE_WRITE_PATHS.has(config.url || ""))
+  );
+}
+
+function shouldSwitchHost(error: AxiosError): boolean {
+  const config = error.config;
+  if (!FALLBACK_API_URL || !config || config._failedOver) return false;
+  const status = error.response?.status;
+  // A status we can read came from the backend itself (it sets CORS headers).
+  // Its own 429s are login rate limits and must not be dodged by switching hosts.
+  if (status !== undefined) {
+    return [502, 503, 504].includes(status) && isReplayable(config);
+  }
+  // No readable response: network failure, timeout, or an edge error page
+  // without CORS headers, which is how Render's own 429/503 responses look
+  // to the browser.
+  return true;
+}
+
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: { "Content-Type": "application/json" },
 });
 
-// Attach JWT token from localStorage if available
+// Pick the host, then attach the JWT token from localStorage if available
 api.interceptors.request.use((config) => {
+  if (FALLBACK_API_URL) {
+    const useFallback = failoverActive();
+    config.baseURL = useFallback ? FALLBACK_API_URL : API_BASE_URL;
+    if (
+      !useFallback &&
+      !config._failedOver &&
+      !config.timeout &&
+      isReplayable(config)
+    ) {
+      config.timeout = PRIMARY_TIMEOUT_MS;
+    }
+  }
   const token = localStorage.getItem("auth_token");
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -46,10 +136,22 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Auto-logout on 401 responses (expired/invalid token)
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  (error: AxiosError) => {
+    const config = error.config;
+    if (config && shouldSwitchHost(error)) {
+      // Primary failed → use the backup for a while; backup failed → back to primary.
+      setFailover(config.baseURL !== FALLBACK_API_URL);
+      if (isReplayable(config)) {
+        config._failedOver = true;
+        config.timeout = 0;
+        return api.request(config);
+      }
+      // A write whose fate is unknown is not repeated automatically; the
+      // user's next attempt goes to the other host.
+    }
+    // Auto-logout on 401 responses (expired/invalid token)
     if (error.response?.status === 401) {
       localStorage.removeItem("auth_token");
       localStorage.removeItem("auth_user");
