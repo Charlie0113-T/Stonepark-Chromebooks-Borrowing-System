@@ -109,6 +109,13 @@ A full-stack web application for Stonepark Intermediate School to manage the bor
 - Set `AUTH_BYPASS=false` in production.
 - Set `CORS_ORIGIN` and `FRONTEND_URL` to your deployed frontend URL.
 
+### Backup backend (optional failover)
+
+- A second copy of the backend can run anywhere with the **same** `DATABASE_URL` and `JWT_SECRET` as Render, so both hosts read and write the same data and accept each other's tokens.
+- Set `REACT_APP_API_FALLBACK_URL` on the frontend (Vercel) to the backup's HTTPS URL. When Render is asleep (reads wait at most 12 s), blocked at its edge, or down, the frontend retries reads and logins on the backup and keeps using it for 10 minutes before trying Render again.
+- Other writes (bookings, returns, admin changes) are never replayed automatically, since the first attempt may already have been saved; the user's next attempt goes to the other host.
+- The backend's own `429` responses (login rate limits) never trigger a switch.
+
 ## Notes
 
 - The default local setup uses SQLite for simplicity.
