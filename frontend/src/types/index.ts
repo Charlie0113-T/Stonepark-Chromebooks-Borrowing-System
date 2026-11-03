@@ -103,6 +103,14 @@ export interface WhitelistEntry {
   is_admin?: boolean;
 }
 
+/** Someone not yet on the whitelist asking to be added (from Sign Up → Apply for Access). */
+export interface WhitelistApplication {
+  email: string;
+  requested_by?: string | null;
+  message?: string | null;
+  created_at?: string | null;
+}
+
 export interface RemovalRequest {
   email: string;
   created_by: string;

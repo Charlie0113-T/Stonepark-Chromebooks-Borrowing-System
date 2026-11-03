@@ -17,6 +17,7 @@ import {
 import "./App.css";
 import {
   addWhitelistEmail,
+  approveWhitelistApplication,
   AuthUser,
   deleteResource,
   fetchCurrentUser,
@@ -24,7 +25,9 @@ import {
   fetchSchools,
   fetchStats,
   fetchWhitelist,
+  fetchWhitelistApplications,
   fetchWhitelistRemovalRequests,
+  rejectWhitelistApplication,
   removeWhitelistEmail,
   requestAdminRemoval,
   School,
@@ -45,7 +48,13 @@ import ScanPage from "./components/ScanPage";
 import ResourceCard from "./components/ResourceCard";
 import StatsView from "./components/StatsView";
 import { StatusDot } from "./components/StatusBadge";
-import { RemovalRequest, Resource, Stats, WhitelistEntry } from "./types";
+import {
+  RemovalRequest,
+  Resource,
+  Stats,
+  WhitelistApplication,
+  WhitelistEntry,
+} from "./types";
 import { clearServiceWorkerCaches } from "./utils/browserCredentials";
 
 type Tab = "dashboard" | "bookings" | "calendar" | "stats" | "qr";
@@ -78,6 +87,9 @@ function App() {
     [],
   );
   const [removalRequests, setRemovalRequests] = useState<RemovalRequest[]>([]);
+  // "Apply for Access" requests. Loaded on sign-in too (not only when the
+  // Whitelist window opens) so the header button can show a count.
+  const [applications, setApplications] = useState<WhitelistApplication[]>([]);
   const [whitelistLoading, setWhitelistLoading] = useState(false);
   const [whitelistError, setWhitelistError] = useState<string | null>(null);
   const [whitelistEmail, setWhitelistEmail] = useState("");
@@ -224,6 +236,14 @@ function App() {
     }
   };
 
+  const loadApplications = useCallback(async () => {
+    try {
+      setApplications(await fetchWhitelistApplications());
+    } catch {
+      // Leave the last known list; the whitelist itself still loads.
+    }
+  }, []);
+
   const loadWhitelist = useCallback(async () => {
     setWhitelistLoading(true);
     setWhitelistError(null);
@@ -231,6 +251,7 @@ function App() {
       const [entries, requests] = await Promise.all([
         fetchWhitelist(),
         fetchWhitelistRemovalRequests(),
+        loadApplications(),
       ]);
       setWhitelistEntries(entries);
       setRemovalRequests(requests);
@@ -240,13 +261,49 @@ function App() {
     } finally {
       setWhitelistLoading(false);
     }
-  }, []);
+  }, [loadApplications]);
 
   useEffect(() => {
     if (showWhitelist) {
       loadWhitelist();
     }
   }, [showWhitelist, loadWhitelist]);
+
+  useEffect(() => {
+    if (authUser?.role === "admin") {
+      loadApplications();
+    } else {
+      setApplications([]);
+    }
+  }, [authUser?.role, loadApplications]);
+
+  const handleApproveApplication = async (email: string) => {
+    setWhitelistLoading(true);
+    setWhitelistError(null);
+    try {
+      await approveWhitelistApplication(email);
+      await loadWhitelist();
+    } catch (err: any) {
+      setWhitelistError(
+        err?.response?.data?.message || "Failed to approve the request.",
+      );
+      setWhitelistLoading(false);
+    }
+  };
+
+  const handleRejectApplication = async (email: string) => {
+    setWhitelistLoading(true);
+    setWhitelistError(null);
+    try {
+      await rejectWhitelistApplication(email);
+      await loadWhitelist();
+    } catch (err: any) {
+      setWhitelistError(
+        err?.response?.data?.message || "Failed to reject the request.",
+      );
+      setWhitelistLoading(false);
+    }
+  };
 
   const handleAddWhitelist = async () => {
     const email = whitelistEmail.trim().toLowerCase();
@@ -418,9 +475,22 @@ function App() {
                     <button
                       onClick={() => setShowWhitelist(true)}
                       className="sp-btn-on-brand"
+                      title={
+                        applications.length > 0
+                          ? `${applications.length} access request(s) waiting`
+                          : undefined
+                      }
                     >
                       <ShieldCheck size={14} strokeWidth={2} aria-hidden="true" />
                       Whitelist
+                      {applications.length > 0 && (
+                        <span
+                          className="ml-0.5 rounded-full bg-gold-500 text-purple-900 px-1.5 text-[10px] font-bold font-mono leading-4"
+                          aria-label={`${applications.length} access requests waiting`}
+                        >
+                          {applications.length}
+                        </span>
+                      )}
                     </button>
                   </>
                 )}
@@ -769,6 +839,72 @@ function App() {
             {whitelistError && (
               <div className="sp-banner-alert">{whitelistError}</div>
             )}
+
+            <div>
+              <div className="text-sm font-bold text-purple-800 mb-2">
+                Access Requests
+                {applications.length > 0 && (
+                  <span className="font-mono"> ({applications.length})</span>
+                )}
+              </div>
+              {applications.length === 0 ? (
+                <div className="text-sm text-ink-500">
+                  No pending requests. People who press Sign Up with an email
+                  that isn't on the whitelist can apply for access; their
+                  requests appear here.
+                </div>
+              ) : (
+                <>
+                  <div className="divide-y divide-ink-100 border border-ink-200 rounded-md">
+                    {applications.map((app) => (
+                      <div
+                        key={app.email}
+                        className="flex items-start justify-between gap-2 px-3 py-2"
+                      >
+                        <div className="min-w-0">
+                          <div className="text-sm text-ink-800 break-all">
+                            {app.email}
+                          </div>
+                          {app.message && (
+                            <div className="text-xs text-ink-600 whitespace-pre-wrap break-words">
+                              “{app.message}”
+                            </div>
+                          )}
+                          {app.created_at &&
+                            !isNaN(new Date(app.created_at).getTime()) && (
+                              <div className="text-xs text-ink-400">
+                                Requested{" "}
+                                {new Date(app.created_at).toLocaleDateString()}
+                              </div>
+                            )}
+                        </div>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <button
+                            onClick={() => handleApproveApplication(app.email)}
+                            disabled={whitelistLoading}
+                            className="sp-btn-primary sp-btn-sm"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            onClick={() => handleRejectApplication(app.email)}
+                            disabled={whitelistLoading}
+                            className="sp-btn-secondary sp-btn-sm"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-ink-500 mt-2">
+                    Approve adds the email to the whitelist. The person then
+                    creates their account with Sign Up. Let them know you've
+                    approved it, since this site may not email them.
+                  </p>
+                </>
+              )}
+            </div>
 
             <div>
               <div className="text-sm font-bold text-purple-800 mb-2">

@@ -8,6 +8,7 @@ import {
   ResourceHistoryEntry,
   Resource,
   Stats,
+  WhitelistApplication,
   WhitelistEntry,
 } from "../types";
 
@@ -575,6 +576,30 @@ export async function applyForWhitelist(
   message?: string,
 ): Promise<void> {
   await api.post("/api/auth/whitelist/apply", { email, message });
+}
+
+/** Admin: pending "Apply for Access" requests. */
+export async function fetchWhitelistApplications(): Promise<
+  WhitelistApplication[]
+> {
+  const res = await api.get<{ success: boolean; data: WhitelistApplication[] }>(
+    "/api/auth/whitelist/applications",
+  );
+  return res.data.data;
+}
+
+/** Admin: approve a request — adds the email to the whitelist. */
+export async function approveWhitelistApplication(email: string): Promise<void> {
+  await api.post(
+    `/api/auth/whitelist/applications/${encodeURIComponent(email)}/approve`,
+  );
+}
+
+/** Admin: reject a request — deletes it; the person can apply again. */
+export async function rejectWhitelistApplication(email: string): Promise<void> {
+  await api.post(
+    `/api/auth/whitelist/applications/${encodeURIComponent(email)}/reject`,
+  );
 }
 
 // ── Admin User Management ─────────────────────────────────────────────────────

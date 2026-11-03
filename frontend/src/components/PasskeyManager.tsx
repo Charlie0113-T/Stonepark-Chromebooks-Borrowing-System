@@ -63,7 +63,7 @@ export default function PasskeyManager() {
       setSuccess("Passkey added. Next time you can sign in without typing.");
       await load();
     } catch (err: any) {
-      const msg = describePasskeyError(err);
+      const msg = describePasskeyError(err, "add");
       if (msg) setError(msg);
     } finally {
       setAdding(false);

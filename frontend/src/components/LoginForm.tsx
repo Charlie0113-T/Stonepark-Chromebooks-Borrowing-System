@@ -677,7 +677,7 @@ export default function LoginForm({ onLogin }: Props) {
                       applyMessage || undefined,
                     );
                     setMessage(
-                      "Your application has been submitted! An admin will review it. You'll receive an email once approved.",
+                      "Your application has been submitted. An admin will review it. Once you're approved, come back here and press Sign Up.",
                     );
                     setApplyMessage("");
                   } catch (err: any) {

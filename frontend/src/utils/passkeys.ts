@@ -46,10 +46,25 @@ export function isUserCancellation(err: any): boolean {
 
 /**
  * Turn any passkey failure into something worth showing a teacher.
- * Returns null when the teacher just cancelled, so callers can stay silent.
+ *
+ * For sign-in, returns null when the teacher just cancelled, so callers can
+ * stay silent (the autofill flow aborts constantly and that is not an error).
+ *
+ * For adding a passkey it never returns null. A school-managed Chromebook
+ * that refuses to create a passkey reports the same NotAllowedError as a
+ * teacher pressing Cancel; the browser deliberately hides which one it was.
+ * Staying silent there leaves the teacher looking at a button that "does
+ * nothing", so say what may have happened instead.
  */
-export function describePasskeyError(err: any): string | null {
-  if (isUserCancellation(err)) return null;
+export function describePasskeyError(
+  err: any,
+  action: "sign-in" | "add" = "sign-in",
+): string | null {
+  if (isUserCancellation(err)) {
+    return action === "add"
+      ? "No passkey was added. If you didn't press Cancel, this device may not allow passkeys (school-managed Chromebooks often block them). Your password still works as normal."
+      : null;
+  }
 
   const serverMessage = err?.response?.data?.message;
   if (serverMessage) return serverMessage;
@@ -63,7 +78,9 @@ export function describePasskeyError(err: any): string | null {
   if (err?.response?.status === 501) {
     return "Passkeys are not set up on this server yet. Please sign in with your password.";
   }
-  return "Passkey sign-in did not work. Please use your email and password instead.";
+  return action === "add"
+    ? "This device could not create a passkey. Please keep using your email and password."
+    : "Passkey sign-in did not work. Please use your email and password instead.";
 }
 
 /** Add a passkey to the signed-in teacher's account. */
